@@ -1,0 +1,224 @@
+--- install
+
+# apt install neutron-l3-agent
+
+--- /etc/neutron/l3_agent.ini 
+
+[DEFAULT] 
+interface_driver = linuxbridge
+
+--- /etc/neutron/neutron.conf 
+
+service_plugins = router
+
+--- /etc/openstack-dashboard/local_settings.py 
+
+OPENSTACK_NEUTRON_NETWORK = {
+    'enable_router': True,
+    'enable_quotas': False,
+    'enable_ipv6': False,
+    'enable_distributed_router': False,
+    'enable_ha_router': False,
+    'enable_lb': False,
+    'enable_firewall': False,
+    'enable_vpn': False,
+    'enable_fip_topology_check': False,
+}
+
+--- restart services
+
+# systemctl restart neutron-l3-agent neutron-server apache2
+
+--- walkthrough
+
+openstack network create \
+--external \
+--provider-network-type vlan \
+--provider-physical-network physnet1 \
+--provider-segment 30 \
+GATEWAY_NET
+
+openstack subnet create \
+--subnet-range 10.30.0.0/24 \
+--no-dhcp \
+--network GATEWAY_NET \
+--allocation-pool start=10.30.0.100,end=10.30.0.254 \
+GATEWAY_SUBNET
+
+openstack router create MyLegacyRouter
+
+openstack router set --external-gateway GATEWAY_NET MyLegacyRouter
+
+openstack port list --router MyLegacyRouter
+
+openstack network agent list --router MyLegacyRouter
+
+NOTE: The IDs and IPs in this output will vary
+
+root@controller01:~# ip netns
+qrouter-9ef2eeed-4a55-4f64-b8be-4b07a43ec373 (id: 3)
+qdhcp-ec7e4e1e-cc54-4e1a-9e57-5b3e2f752c50 (id: 2)
+qdhcp-7745a4a9-68a4-444e-a5ff-f9439e3aac6c (id: 1)
+qdhcp-03327707-c369-4bd7-bd71-a42d9bcf49b8 (id: 0)
+
+
+root@controller01:~# ip netns exec qrouter-9ef2eeed-4a55-4f64-b8be-4b07a43ec373 ip a 
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: qg-73e65609-f0@if16: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether fa:16:3e:8c:a0:3f brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 10.30.0.106/24 brd 10.30.0.255 scope global qg-73e65609-f0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe8c:a03f/64 scope link
+       valid_lft forever preferred_lft forever
+	   
+	   
+ 
+root@controller01:~# ip netns
+qrouter-9ef2eeed-4a55-4f64-b8be-4b07a43ec373 (id: 3)
+qdhcp-ec7e4e1e-cc54-4e1a-9e57-5b3e2f752c50 (id: 2)
+qdhcp-7745a4a9-68a4-444e-a5ff-f9439e3aac6c (id: 1)
+qdhcp-03327707-c369-4bd7-bd71-a42d9bcf49b8 (id: 0)
+
+root@controller01:~# ip netns exec qrouter-9ef2eeed-4a55-4f64-b8be-4b07a43ec373 ethtool -S qg-73e65609-f0
+NIC statistics:
+     peer_ifindex: 16
+
+root@controller01:~# ip link show | grep 16: -A1
+16: tap73e65609-f0@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master brq758070f9-ec state UP mode DEFAULT group default qlen 1000
+    link/ether d2:47:a1:98:1a:24 brd ff:ff:ff:ff:ff:ff link-netnsid 3
+	
+root@controller01:~# brctl show
+bridge name	        bridge id		    STP enabled	      interfaces
+brq03327707-c3		8000.000c291124cb	    no		      eth2.300
+							                              tap6c15d7b8-87
+
+brq758070f9-ec		8000.000c291124cb	    no		      eth2.30
+							                              tap73e65609-f0
+
+brq7745a4a9-68		8000.000c291124cb	    no		      eth2
+							                              tapd1848f67-2e
+
+brqec7e4e1e-cc		8000.72a912f0095a	    no		      tap60a2e772-7d
+							                              vxlan-36
+						
+
+root@controller01:~# ip netns exec qrouter-9ef2eeed-4a55-4f64-b8be-4b07a43ec373 ping 10.30.0.1 -c 5
+PING 10.30.0.1 (10.30.0.1) 56(84) bytes of data.
+64 bytes from 10.30.0.1: icmp_seq=1 ttl=255 time=0.582 ms
+64 bytes from 10.30.0.1: icmp_seq=2 ttl=255 time=0.738 ms
+64 bytes from 10.30.0.1: icmp_seq=3 ttl=255 time=0.604 ms
+64 bytes from 10.30.0.1: icmp_seq=4 ttl=255 time=0.623 ms
+64 bytes from 10.30.0.1: icmp_seq=5 ttl=255 time=0.687 ms
+
+--- 10.30.0.1 ping statistics ---
+5 packets transmitted, 5 received, 0% packet loss, time 4072ms
+rtt min/avg/max/mdev = 0.582/0.646/0.738/0.065 ms
+					
+						
+root@controller01:~# ip netns exec qrouter-9ef2eeed-4a55-4f64-b8be-4b07a43ec373 ip route show
+default via 10.30.0.1 dev qg-73e65609-f0
+10.30.0.0/24 dev qg-73e65609-f0  proto kernel  scope link  src 10.30.0.106
+
+-- Create the internal network
+
+openstack network create PROJECT_NET
+
+openstack subnet create \
+--subnet-range 192.168.200.0/24 \
+--network PROJECT_NET \
+--dns-nameserver 8.8.8.8 \
+PROJECT_SUBNET
+
+openstack router add subnet MyLegacyRouter PROJECT_SUBNET
+
+NOTE: The output here will vary:
+
+root@controller01:~# ip netns exec qrouter-9ef2eeed-4a55-4f64-b8be-4b07a43ec373 ip addr show
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: qg-73e65609-f0@if16: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether fa:16:3e:8c:a0:3f brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 10.30.0.106/24 brd 10.30.0.255 scope global qg-73e65609-f0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe8c:a03f/64 scope link
+       valid_lft forever preferred_lft forever
+3: qr-a9327c59-a6@if22: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether fa:16:3e:86:4e:53 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 192.168.200.1/24 brd 192.168.200.255 scope global qr-a9327c59-a6
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe86:4e53/64 scope link
+       valid_lft forever preferred_lft forever
+	   
+root@controller01:~# brctl show                          
+bridge name	             bridge id		   STP enabled     interfaces
+brq3f05db4d-c4		8000.000c291124cb	       no	     eth2.42
+							                             tapcfa2b6a1-d2
+                                                  
+brq758070f9-ec		8000.000c291124cb	       no	     eth2.30
+							                             tap73e65609-f0
+                                                  
+brqce1fe7cd-7b		8000.000c291124cb	       no	     eth2.43
+							                             tapddbe596d-d6
+													     tapa9327c59-a6
+                                                  
+brqd8428f56-ba		8000.000c291124cb	       no	     eth2.41
+							                             tap9d3d1ae5-8c
+                                                  
+brqdb527151-20		8000.000c291124cb	       no	     eth2.40
+							                             tapd5a55dff-9e
+						
+						
+root@controller01:~# openstack port list --router MyLegacyRouter
++--------------------------------------+------+-------------------+------------------------------------------------------------------------------+--------+
+| ID                                   | Name | MAC Address       | Fixed IP Addresses                                                           | Status |
++--------------------------------------+------+-------------------+------------------------------------------------------------------------------+--------+
+| 73e65609-f0ea-4f4b-9581-42fe4b7df8d8 |      | fa:16:3e:8c:a0:3f | ip_address='10.30.0.106', subnet_id='0af5a767-fce0-4c4d-9df2-1aedbd259405'   | ACTIVE |
+| a9327c59-a654-479f-9a0f-b706e81cd1ba |      | fa:16:3e:86:4e:53 | ip_address='192.168.200.1', subnet_id='f29a2257-1283-4047-a835-b207480aa6f3' | ACTIVE |
++--------------------------------------+------+-------------------+------------------------------------------------------------------------------+--------+
+
+
+root@controller01:~# openstack image list
++--------------------------------------+---------------------+--------+
+| ID                                   | Name                | Status |
++--------------------------------------+---------------------+--------+
+| 4df5ecf2-54d3-49cc-8a52-190aa4913425 | cirros-0.4.0        | active |
+| ffdb76f0-6cce-4d79-99a5-ccc6e76d530a | ubuntu-xenial-16.04 | active |
++--------------------------------------+---------------------+--------+
+
+--- Create instances
+
+openstack server create \
+--flavor tiny \
+--image cirros-0.4.0 \
+--nic net-id=PROJECT_NET \
+--availability-zone nova:compute01 \
+MyInstance1
+
+openstack server create \
+--flavor tiny \
+--image cirros-0.4.0 \
+--nic net-id=PROJECT_NET \
+--availability-zone nova:compute02 \
+MyInstance2
+
+--- Create sec groups (The IDs will vary)
+
+openstack security group rule create \
+--protocol icmp \
+fae5da02-5d96-43df-aebf-bf0210d353bc
+
+openstack security group rule create \
+--protocol tcp \
+--dst-port 22 \
+fae5da02-5d96-43df-aebf-bf0210d353bc	
+
+

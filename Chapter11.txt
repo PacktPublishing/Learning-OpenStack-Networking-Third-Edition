@@ -1,0 +1,25 @@
+--- install
+
+# apt install neutron-l3-agent
+
+--- /etc/neutron/l3_agent.ini
+
+- compute01
+
+[DEFAULT]
+interface_driver = linuxbridge
+
+- compute02
+
+[DEFAULT]
+interface_driver = openvswitch
+
+--- restart and verify
+
+# systemctl restart neutron-l3-agent
+# openstack network agent list --agent-type l3
+
+--- create
+
+openstack router create --ha MyHighlyAvailableRouter
+

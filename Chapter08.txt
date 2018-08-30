@@ -1,0 +1,396 @@
+security group create  Create a new security group
+security group delete  Delete security group(s)
+security group list  List security groups
+security group rule create  Create a new security group rule
+security group rule delete  Delete security group rule(s)
+security group rule list  List security group rules
+security group rule show  Display security group rule details
+security group set  Set security group properties
+security group show  Display security group details
+server add security group  Add security group to server
+server remove security group  Remove security group from server
+
+
+security group create 
+[--description <description>]
+[--project <project>]
+[--project-domain <project-domain>]
+<name>
+							 
+							 
+							 
+security group list
+[--project <project>]
+[--project-domain <project-domain>]
+
+openstack security group set
+[--name <new-name>]
+[--description <description>]
+<group>
+
+openstack security group rule create
+[--remote-ip <ip-address> | --remote-group <group>]
+[--description <description>]
+[--dst-port <port-range>]
+[--icmp-type <icmp-type>]
+[--icmp-code <icmp-code>]
+[--protocol <protocol>]
+[--ingress | --egress]
+[--ethertype <ethertype>]
+[--project <project>]
+[--project-domain <project-domain>]
+<group>
+
+openstack security group rule list
+[--protocol <protocol>]
+[--ingress | --egress] [--long]
+[<group>]
+
+
+root@controller01:~# openstack security group list
++--------------------------------------+-------------+------------------------+----------------------------------+
+| ID                                   | Name        | Description            | Project                          |
++--------------------------------------+-------------+------------------------+----------------------------------+
+| 1e82757a-848b-47de-a528-e8f8fb001df9 | default     | Default security group | fddf005c8b854dad90aaf8cf861c9598 |
+| 25094e89-69e1-46af-9af4-588885714da9 | default     | Default security group | d2aefac55d5040e3b7d32a469f110d50 |
+| d8f1b1ec-bc06-4474-be55-436dce9797ea | WEB_SERVERS | WEB_SERVERS            | 9233b6b4f6a54386af63c0a7b8f043c2 |
+| fae5da02-5d96-43df-aebf-bf0210d353bc | default     | Default security group | 9233b6b4f6a54386af63c0a7b8f043c2 |
++--------------------------------------+-------------+------------------------+----------------------------------+
+
+openstack security group rule create --protocol tcp --dst-port 80 --remote-ip 0.0.0.0/0 WEB_SERVERS
+openstack security group rule create --protocol tcp --dst-port 443 --remote-ip 0.0.0.0/0 WEB_SERVERS
+
+root@controller01:~# openstack security group rule create --protocol tcp --dst-port 80 --remote-ip 0.0.0.0/0 WEB_SERVERS
++-------------------+--------------------------------------+
+| Field             | Value                                |
++-------------------+--------------------------------------+
+| created_at        | 2018-03-23T14:54:27Z                 |
+| description       |                                      |
+| direction         | ingress                              |
+| ether_type        | IPv4                                 |
+| id                | 9240f5af-e55b-4e5d-bef4-735eb583575c |
+| name              | None                                 |
+| port_range_max    | 80                                   |
+| port_range_min    | 80                                   |
+| project_id        | 9233b6b4f6a54386af63c0a7b8f043c2     |
+| protocol          | tcp                                  |
+| remote_group_id   | None                                 |
+| remote_ip_prefix  | 0.0.0.0/0                            |
+| revision_number   | 0                                    |
+| security_group_id | d8f1b1ec-bc06-4474-be55-436dce9797ea |
+| updated_at        | 2018-03-23T14:54:27Z                 |
++-------------------+--------------------------------------+
+
+root@controller01:~# openstack security group rule create --protocol tcp --dst-port 443 --remote-ip 0.0.0.0/0 WEB_SERVERS
++-------------------+--------------------------------------+
+| Field             | Value                                |
++-------------------+--------------------------------------+
+| created_at        | 2018-03-23T14:54:46Z                 |
+| description       |                                      |
+| direction         | ingress                              |
+| ether_type        | IPv4                                 |
+| id                | 37abc0fb-4340-46e8-880e-a9e6de5b01fd |
+| name              | None                                 |
+| port_range_max    | 443                                  |
+| port_range_min    | 443                                  |
+| project_id        | 9233b6b4f6a54386af63c0a7b8f043c2     |
+| protocol          | tcp                                  |
+| remote_group_id   | None                                 |
+| remote_ip_prefix  | 0.0.0.0/0                            |
+| revision_number   | 0                                    |
+| security_group_id | d8f1b1ec-bc06-4474-be55-436dce9797ea |
+| updated_at        | 2018-03-23T14:54:46Z                 |
++-------------------+--------------------------------------+
+
+
+root@controller01:~# ip netns exec qdhcp-03327707-c369-4bd7-bd71-a42d9bcf49b8 curl http://192.168.206.6/ --connect-timeout 5
+curl: (28) Connection timed out after 5001 milliseconds
+
+
+root@controller01:~# openstack server add security group WEB1 WEB_SERVERS
+root@controller01:~# openstack server show WEB1
++-------------------------------------+------------------------------------------------------------+
+| Field                               | Value                                                      |
++-------------------------------------+------------------------------------------------------------+
+| OS-DCF:diskConfig                   | MANUAL                                                     |
+| OS-EXT-AZ:availability_zone         | nova                                                       |
+| OS-EXT-SRV-ATTR:host                | compute01                                                  |
+| OS-EXT-SRV-ATTR:hypervisor_hostname | compute01.learningneutron.com                              |
+| OS-EXT-SRV-ATTR:instance_name       | instance-00000014                                          |
+| OS-EXT-STS:power_state              | Running                                                    |
+| OS-EXT-STS:task_state               | None                                                       |
+| OS-EXT-STS:vm_state                 | active                                                     |
+| OS-SRV-USG:launched_at              | 2018-03-23T15:06:40.000000                                 |
+| OS-SRV-USG:terminated_at            | None                                                       |
+| accessIPv4                          |                                                            |
+| accessIPv6                          |                                                            |
+| addresses                           | MyVLANNetwork=192.168.206.6                                |
+| config_drive                        |                                                            |
+| created                             | 2018-03-23T15:06:10Z                                       |
+| flavor                              | small (280d07fb-b932-464a-9e26-817522286be7)               |
+| hostId                              | e1e220df487a0b933fb3ec56bef96d6b8ca8b3240f56ca76435b733d   |
+| id                                  | e890bc04-0b6b-42ba-bc8c-1d4288ac86ed                       |
+| image                               | ubuntu-xenial-16.04 (ffdb76f0-6cce-4d79-99a5-ccc6e76d530a) |
+| key_name                            | james                                                      |
+| name                                | WEB1                                                       |
+| progress                            | 0                                                          |
+| project_id                          | 9233b6b4f6a54386af63c0a7b8f043c2                           |
+| properties                          |                                                            |
+| security_groups                     | name='WEB_SERVERS'                                         |
+|                                     | name='default'                                             |
+| status                              | ACTIVE                                                     |
+| updated                             | 2018-03-23T15:06:40Z                                       |
+| user_id                             | 8a679d8b7b574e54a5cfe02c422bbe68                           |
+| volumes_attached                    |                                                            |
++-------------------------------------+------------------------------------------------------------+
+
+root@controller01:~# ip netns exec qdhcp-03327707-c369-4bd7-bd71-a42d9bcf49b8 curl http://192.168.206.6/ --connect-timeout 5
+Hello World! I am WEB1!
+
+
+root@compute01:~# iptables-save
+# Generated by iptables-save v1.6.0 on Fri Mar 23 15:36:48 2018
+*raw
+:PREROUTING ACCEPT [62:16623]
+:OUTPUT ACCEPT [57:36069]
+:neutron-linuxbri-OUTPUT - [0:0]
+:neutron-linuxbri-PREROUTING - [0:0]
+-A PREROUTING -j neutron-linuxbri-PREROUTING
+-A OUTPUT -j neutron-linuxbri-OUTPUT
+-A neutron-linuxbri-PREROUTING -m physdev --physdev-in brq03327707-c3 -m comment --comment "Set zone for dcc4b66-c1" -j CT --zone 1
+-A neutron-linuxbri-PREROUTING -i brq03327707-c3 -m comment --comment "Set zone for dcc4b66-c1" -j CT --zone 1
+-A neutron-linuxbri-PREROUTING -m physdev --physdev-in tapadcc4b66-c1 -m comment --comment "Set zone for dcc4b66-c1" -j CT --zone 1
+COMMIT
+# Completed on Fri Mar 23 15:36:48 2018
+# Generated by iptables-save v1.6.0 on Fri Mar 23 15:36:48 2018
+*filter
+:INPUT ACCEPT [63:16675]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [64:38153]
+:neutron-filter-top - [0:0]
+:neutron-linuxbri-FORWARD - [0:0]
+:neutron-linuxbri-INPUT - [0:0]
+:neutron-linuxbri-OUTPUT - [0:0]
+:neutron-linuxbri-iadcc4b66-c - [0:0]
+:neutron-linuxbri-local - [0:0]
+:neutron-linuxbri-oadcc4b66-c - [0:0]
+:neutron-linuxbri-sadcc4b66-c - [0:0]
+:neutron-linuxbri-sg-chain - [0:0]
+:neutron-linuxbri-sg-fallback - [0:0]
+-A INPUT -j neutron-linuxbri-INPUT
+-A FORWARD -j neutron-filter-top
+-A FORWARD -j neutron-linuxbri-FORWARD
+-A OUTPUT -j neutron-filter-top
+-A OUTPUT -j neutron-linuxbri-OUTPUT
+-A neutron-filter-top -j neutron-linuxbri-local
+-A neutron-linuxbri-FORWARD -m physdev --physdev-out tapadcc4b66-c1 --physdev-is-bridged -j neutron-linuxbri-sg-chain
+-A neutron-linuxbri-FORWARD -m physdev --physdev-in tapadcc4b66-c1 --physdev-is-bridged -j neutron-linuxbri-sg-chain
+-A neutron-linuxbri-INPUT -m physdev --physdev-in tapadcc4b66-c1 --physdev-is-bridged -j neutron-linuxbri-oadcc4b66-c
+-A neutron-linuxbri-iadcc4b66-c -m state --state RELATED,ESTABLISHED -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -d 192.168.206.6/32 -p udp -m udp --sport 67 --dport 68 -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -d 255.255.255.255/32 -p udp -m udp --sport 67 --dport 68 -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -p tcp -m tcp --dport 443 -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -p tcp -m tcp --dport 80 -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -m set --match-set NIPv4fae5da02-5d96-43df-aebf- src -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -p icmp -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -p tcp -m tcp --dport 22 -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -m state --state INVALID -j DROP
+-A neutron-linuxbri-iadcc4b66-c -j neutron-linuxbri-sg-fallback
+-A neutron-linuxbri-oadcc4b66-c -s 0.0.0.0/32 -d 255.255.255.255/32 -p udp -m udp --sport 68 --dport 67 -j RETURN
+-A neutron-linuxbri-oadcc4b66-c -j neutron-linuxbri-sadcc4b66-c
+-A neutron-linuxbri-oadcc4b66-c -p udp -m udp --sport 68 --dport 67 -m comment --comment "Allow DHCP client traffic." -j RETURN
+-A neutron-linuxbri-oadcc4b66-c -p udp -m udp --sport 67 --dport 68 -m comment --comment "Prevent DHCP Spoofing by VM." -j DROP
+-A neutron-linuxbri-oadcc4b66-c -m state --state RELATED,ESTABLISHED -j RETURN
+-A neutron-linuxbri-oadcc4b66-c -j RETURN
+-A neutron-linuxbri-oadcc4b66-c -m state --state INVALID -j DROP
+-A neutron-linuxbri-oadcc4b66-c -m comment --comment "Send unmatched traffic to the fallback chain." -j neutron-linuxbri-sg-fallback
+-A neutron-linuxbri-sadcc4b66-c -s 192.168.206.6/32 -m mac --mac-source FA:16:3E:DC:D2:AB -j RETURN
+-A neutron-linuxbri-sadcc4b66-c -m comment --comment "Drop traffic without an IP/MAC allow rule." -j DROP
+-A neutron-linuxbri-sg-chain -m physdev --physdev-out tapadcc4b66-c1 --physdev-is-bridged -j neutron-linuxbri-iadcc4b66-c
+-A neutron-linuxbri-sg-chain -m physdev --physdev-in tapadcc4b66-c1 --physdev-is-bridged -j neutron-linuxbri-oadcc4b66-c
+-A neutron-linuxbri-sg-chain -j ACCEPT
+-A neutron-linuxbri-sg-fallback -m comment --comment "Default drop rule for unmatched traffic." -j DROP
+COMMIT
+# Completed on Fri Mar 23 15:36:48 2018
+
+
+*raw
+:PREROUTING ACCEPT [62:16623]
+:OUTPUT ACCEPT [57:36069]
+:neutron-linuxbri-OUTPUT - [0:0]
+:neutron-linuxbri-PREROUTING - [0:0]
+-A PREROUTING -j neutron-linuxbri-PREROUTING
+-A OUTPUT -j neutron-linuxbri-OUTPUT
+-A neutron-linuxbri-PREROUTING -m physdev --physdev-in brq03327707-c3 -m comment --comment "Set zone for dcc4b66-c1" -j CT --zone 1
+-A neutron-linuxbri-PREROUTING -i brq03327707-c3 -m comment --comment "Set zone for dcc4b66-c1" -j CT --zone 1
+-A neutron-linuxbri-PREROUTING -m physdev --physdev-in tapadcc4b66-c1 -m comment --comment "Set zone for dcc4b66-c1" -j CT --zone 1
+
+
+-A neutron-linuxbri-oadcc4b66-c -s 0.0.0.0/32 -d 255.255.255.255/32 -p udp -m udp --sport 68 --dport 67 -j RETURN
+-A neutron-linuxbri-oadcc4b66-c -j neutron-linuxbri-sadcc4b66-c
+-A neutron-linuxbri-oadcc4b66-c -p udp -m udp --sport 68 --dport 67 -m comment --comment "Allow DHCP client traffic." -j RETURN
+-A neutron-linuxbri-oadcc4b66-c -p udp -m udp --sport 67 --dport 68 -m comment --comment "Prevent DHCP Spoofing by VM." -j DROP
+-A neutron-linuxbri-oadcc4b66-c -m state --state RELATED,ESTABLISHED -j RETURN
+-A neutron-linuxbri-oadcc4b66-c -j RETURN
+-A neutron-linuxbri-oadcc4b66-c -m state --state INVALID -j DROP
+-A neutron-linuxbri-oadcc4b66-c -m comment --comment "Send unmatched traffic to the fallback chain." -j neutron-linuxbri-sg-fallback
+
+
+-A FORWARD -j neutron-filter-top
+-A FORWARD -j neutron-linuxbri-FORWARD
+...
+-A neutron-filter-top -j neutron-linuxbri-local
+-A neutron-linuxbri-FORWARD -m physdev --physdev-out tapadcc4b66-c1 --physdev-is-bridged -j neutron-linuxbri-sg-chain
+-A neutron-linuxbri-FORWARD -m physdev --physdev-in tapadcc4b66-c1 --physdev-is-bridged -j neutron-linuxbri-sg-chain
+
+
+-A neutron-linuxbri-FORWARD -m physdev --physdev-out tapadcc4b66-c1 --physdev-is-bridged -j neutron-linuxbri-sg-chain
+-A neutron-linuxbri-FORWARD -m physdev --physdev-in tapadcc4b66-c1 --physdev-is-bridged -j neutron-linuxbri-sg-chain
+
+-A neutron-linuxbri-sg-chain -m physdev --physdev-out tapadcc4b66-c1 --physdev-is-bridged -j neutron-linuxbri-iadcc4b66-c
+-A neutron-linuxbri-sg-chain -m physdev --physdev-in tapadcc4b66-c1 --physdev-is-bridged -j neutron-linuxbri-oadcc4b66-c
+-A neutron-linuxbri-sg-chain -j ACCEPT
+
+
+-A neutron-linuxbri-iadcc4b66-c -m state --state RELATED,ESTABLISHED -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -d 192.168.206.6/32 -p udp -m udp --sport 67 --dport 68 -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -d 255.255.255.255/32 -p udp -m udp --sport 67 --dport 68 -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -p tcp -m tcp --dport 443 -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -p tcp -m tcp --dport 80 -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -m set --match-set NIPv4fae5da02-5d96-43df-aebf- src -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -p icmp -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -p tcp -m tcp --dport 22 -j RETURN
+-A neutron-linuxbri-iadcc4b66-c -m state --state INVALID -j DROP
+-A neutron-linuxbri-iadcc4b66-c -j neutron-linuxbri-sg-fallback
+
+-A neutron-linuxbri-sadcc4b66-c -s 192.168.206.6/32 -m mac --mac-source FA:16:3E:DC:D2:AB -j RETURN
+-A neutron-linuxbri-sadcc4b66-c -m comment --comment "Drop traffic without an IP/MAC allow rule." -j DROP
+
+root@controller01:~# openstack extension list --network
++--------------------------------------------------------------+---------------------------+--------------------------------------------------------------------------------------------------------+
+| Name                                                         | Alias                     | Description                                                                                            |
++--------------------------------------------------------------+---------------------------+--------------------------------------------------------------------------------------------------------+
+| Default Subnetpools                                          | default-subnetpools       | Provides ability to mark and use a subnetpool as the default                                           |
+| Network IP Availability                                      | network-ip-availability   | Provides IP availability data for each network and subnet.                                             |
+| Network Availability Zone                                    | network_availability_zone | Availability zone support for network.                                                                 |
+| Network MTU (writable)                                       | net-mtu-writable          | Provides a writable MTU attribute for a network resource.                                              |
+| Port Binding                                                 | binding                   | Expose port bindings of a virtual port to external application                                         |
+| agent                                                        | agent                     | The agent management extension.                                                                        |
+| Subnet Allocation                                            | subnet_allocation         | Enables allocation of subnets from a subnet pool                                                       |
+| DHCP Agent Scheduler                                         | dhcp_agent_scheduler      | Schedule networks among dhcp agents                                                                    |
+| Tag support                                                  | tag                       | Enables to set tag on resources.                                                                       |
+| Neutron external network                                     | external-net              | Adds external network attribute to network resource.                                                   |
+| Neutron Service Flavors                                      | flavors                   | Flavor specification for Neutron advanced services                                                     |
+| Network MTU                                                  | net-mtu                   | Provides MTU attribute for a network resource.                                                         |
+| Availability Zone                                            | availability_zone         | The availability zone extension.                                                                       |
+| Quota management support                                     | quotas                    | Expose functions for quotas management per tenant                                                      |
+| Tag support for: trunk, policy, security_group, floatingip   | standard-attr-tag         | Enables to set tag on resources with standard attribute.                                               |
+| If-Match constraints based on revision_number                | revision-if-match         | Extension indicating that If-Match based on revision_number is supported.                              |
+| Provider Network                                             | provider                  | Expose mapping of virtual networks to physical networks                                                |
+| Multi Provider Network                                       | multi-provider            | Expose mapping of virtual networks to multiple physical networks                                       |
+| Quota details management support                             | quota_details             | Expose functions for quotas usage statistics per project                                               |
+| Address scope                                                | address-scope             | Address scopes extension.                                                                              |
+| Subnet service types                                         | subnet-service-types      | Provides ability to set the subnet service_types field                                                 |
+| Resource timestamps                                          | standard-attr-timestamp   | Adds created_at and updated_at fields to all Neutron resources that have Neutron standard attributes.  |
+| Neutron Service Type Management                              | service-type              | API for retrieving service providers for Neutron advanced services                                     |
+| Tag support for resources: subnet, subnetpool, port, router  | tag-ext                   | Extends tag support to more L2 and L3 resources.                                                       |
+| Neutron Extra DHCP options                                   | extra_dhcp_opt            | Extra options configuration for DHCP. For example PXE boot options to DHCP clients can be specified    |
+| Resource revision numbers                                    | standard-attr-revisions   | This extension will display the revision number of neutron resources.                                  |
+| Pagination support                                           | pagination                | Extension that indicates that pagination is enabled.                                                   |
+| Sorting support                                              | sorting                   | Extension that indicates that sorting is enabled.                                                      |
+| security-group                                               | security-group            | The security groups extension.                                                                         |
+| RBAC Policies                                                | rbac-policies             | Allows creation and modification of policies that control tenant access to resources.                  |
+| standard-attr-description                                    | standard-attr-description | Extension to add descriptions to standard attributes                                                   |
+| Port Security                                                | port-security             | Provides port security                                                                                 |
+| Allowed Address Pairs                                        | allowed-address-pairs     | Provides allowed address pairs                                                                         |
+| project_id field enabled                                     | project-id                | Extension that indicates that project_id field is enabled.                                             |
++--------------------------------------------------------------+---------------------------+--------------------------------------------------------------------------------------------------------+
+
+
+root@controller01:~# openstack network create --disable-port-security NetworkWithoutPortSecurity
++---------------------------+--------------------------------------+
+| Field                     | Value                                |
++---------------------------+--------------------------------------+
+| admin_state_up            | UP                                   |
+| availability_zone_hints   |                                      |
+| availability_zones        |                                      |
+| created_at                | 2018-03-26T01:14:33Z                 |
+| description               |                                      |
+| dns_domain                | None                                 |
+| id                        | eaf4b54e-fe28-42a4-8cb5-e44f4e5ef452 |
+| ipv4_address_scope        | None                                 |
+| ipv6_address_scope        | None                                 |
+| is_default                | None                                 |
+| is_vlan_transparent       | None                                 |
+| mtu                       | 1450                                 |
+| name                      | NetworkWithoutPortSecurity           |
+| port_security_enabled     | False                                |
+| project_id                | 9233b6b4f6a54386af63c0a7b8f043c2     |
+| provider:network_type     | vxlan                                |
+| provider:physical_network | None                                 |
+| provider:segmentation_id  | 72                                   |
+| qos_policy_id             | None                                 |
+| revision_number           | 2                                    |
+| router:external           | Internal                             |
+| segments                  | None                                 |
+| shared                    | False                                |
+| status                    | ACTIVE                               |
+| subnets                   |                                      |
+| tags                      |                                      |
+| updated_at                | 2018-03-26T01:14:33Z                 |
++---------------------------+--------------------------------------+
+
+root@controller01:~# openstack port create --network NetworkWithoutPortSecurity TestPort
++-----------------------+--------------------------------------+
+| Field                 | Value                                |
++-----------------------+--------------------------------------+
+| admin_state_up        | UP                                   |
+| allowed_address_pairs |                                      |
+| binding_host_id       |                                      |
+| binding_profile       |                                      |
+| binding_vif_details   |                                      |
+| binding_vif_type      | unbound                              |
+| binding_vnic_type     | normal                               |
+| created_at            | 2018-03-26T01:16:42Z                 |
+| data_plane_status     | None                                 |
+| description           |                                      |
+| device_id             |                                      |
+| device_owner          |                                      |
+| dns_assignment        | None                                 |
+| dns_name              | None                                 |
+| extra_dhcp_opts       |                                      |
+| fixed_ips             |                                      |
+| id                    | 1848fbc7-3124-403c-b283-4db41a30f6a2 |
+| ip_address            | None                                 |
+| mac_address           | fa:16:3e:64:e5:ea                    |
+| name                  | TestPort                             |
+| network_id            | eaf4b54e-fe28-42a4-8cb5-e44f4e5ef452 |
+| option_name           | None                                 |
+| option_value          | None                                 |
+| port_security_enabled | False                                |
+| project_id            | 9233b6b4f6a54386af63c0a7b8f043c2     |
+| qos_policy_id         | None                                 |
+| revision_number       | 2                                    |
+| security_group_ids    |                                      |
+| status                | DOWN                                 |
+| subnet_id             | None                                 |
+| tags                  |                                      |
+| trunk_details         | None                                 |
+| updated_at            | 2018-03-26T01:16:42Z                 |
++-----------------------+--------------------------------------+
+
+root@controller01:~# openstack port show TestPort -c port_security_enabled
++-----------------------+-------+
+| Field                 | Value |
++-----------------------+-------+
+| port_security_enabled | False |
++-----------------------+-------+
+
+root@controller01:~# openstack port set --enable-port-security TestPort
+root@controller01:~# openstack port show TestPort -c port_security_enabled
++-----------------------+-------+
+| Field                 | Value |
++-----------------------+-------+
+| port_security_enabled | True  |
++-----------------------+-------+
+

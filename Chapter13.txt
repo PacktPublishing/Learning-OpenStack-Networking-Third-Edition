@@ -1,0 +1,407 @@
+--- install 
+
+# apt install neutron-lbaasv2-agent
+
+--- /etc/neutron/lbaas_agent.ini
+
+[DEFAULT]
+...
+interface_driver = linuxbridge
+device_driver = neutron_lbaas.drivers.haproxy.namespace_driver.HaproxyNSDriver
+
+--- /etc/neutron/neutron.conf
+
+[DEFAULT]
+service_plugins = router,neutron_lbaas.services.loadbalancer.plugin.LoadBalancerPluginv2
+
+--- /etc/neutron/neutron_lbaas.conf
+
+[service_providers]
+service_provider = LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default
+
+--- Update DB
+
+# neutron-db-manage --subproject neutron-lbaas upgrade head
+
+--- Restart services & verify
+
+# systemctl restart neutron-server neutron-lbaasv2-agent
+# openstack network agent list
+
+--- examples (NOTE: the IDs may differ in your environment)
+
+openstack server create --flavor small --image ubuntu-xenial-16.04 --nic net-id=PROJECT_NET --key-name james --availability-zone nova:compute02 web1
+openstack server create --flavor small --image ubuntu-xenial-16.04 --nic net-id=PROJECT_NET --key-name james --availability-zone nova:compute03 web2
+
+root@controller01:~# openstack server list
++--------------------------------------+----------+--------+-------------------------------------+---------------------+--------+
+| ID                                   | Name     | Status | Networks                            | Image               | Flavor |
++--------------------------------------+----------+--------+-------------------------------------+---------------------+--------+
+| d0ce5716-f1dc-4d5f-a0c9-0f0db7721556 | web2     | ACTIVE | PROJECT_NET=192.168.200.7           | ubuntu-xenial-16.04 | small  |
+| 6157572c-2b6d-4f66-a66e-b0beaae0e0bf | web1     | ACTIVE | PROJECT_NET=192.168.200.9           | ubuntu-xenial-16.04 | small  |
++--------------------------------------+----------+--------+-------------------------------------+---------------------+--------+
+
+
+root@controller01:~# neutron lbaas-loadbalancer-create PROJECT_SUBNET --name LB_WEB
+Created a new loadbalancer:
++---------------------+--------------------------------------+
+| Field               | Value                                |
++---------------------+--------------------------------------+
+| admin_state_up      | True                                 |
+| description         |                                      |
+| id                  | 137292b2-79cf-447a-8259-39ac9aef6575 |
+| listeners           |                                      |
+| name                | LB_WEB                               |
+| operating_status    | OFFLINE                              |
+| pools               |                                      |
+| provider            | haproxy                              |
+| provisioning_status | PENDING_CREATE                       |
+| tenant_id           | 9233b6b4f6a54386af63c0a7b8f043c2     |
+| vip_address         | 192.168.200.12                       |
+| vip_port_id         | 28d1e4f9-c81a-4c82-90b5-20bf1eb5aa3d |
+| vip_subnet_id       | f29a2257-1283-4047-a835-b207480aa6f3 |
++---------------------+--------------------------------------+
+
+root@controller01:~# neutron lbaas-pool-create \
+> --lb-algorithm ROUND_ROBIN \
+> --protocol HTTP \
+> --loadbalancer LB_WEB \
+> --name POOL_WEB
+neutron CLI is deprecated and will be removed in the future. Use openstack CLI instead.
+Created a new pool:
++---------------------+------------------------------------------------+
+| Field               | Value                                          |
++---------------------+------------------------------------------------+
+| admin_state_up      | True                                           |
+| description         |                                                |
+| healthmonitor_id    |                                                |
+| id                  | 05762f48-64e8-4e5a-a972-ddc2516c0153           |
+| lb_algorithm        | ROUND_ROBIN                                    |
+| listeners           |                                                |
+| loadbalancers       | {"id": "137292b2-79cf-447a-8259-39ac9aef6575"} |
+| members             |                                                |
+| name                | POOL_WEB                                       |
+| protocol            | HTTP                                           |
+| session_persistence |                                                |
+| tenant_id           | 9233b6b4f6a54386af63c0a7b8f043c2               |
++---------------------+------------------------------------------------+
+
+root@controller01:~# neutron lbaas-member-create --name web1 \
+> --subnet PROJECT_SUBNET \
+> --address 192.168.200.9 \
+> --protocol-port 80 \
+> POOL_WEB
+Created a new member:
++----------------+--------------------------------------+
+| Field          | Value                                |
++----------------+--------------------------------------+
+| address        | 192.168.200.9                        |
+| admin_state_up | True                                 |
+| id             | 9554ae8b-8ced-4074-ab5f-037f0ef440cc |
+| name           | web1                                 |
+| protocol_port  | 80                                   |
+| subnet_id      | f29a2257-1283-4047-a835-b207480aa6f3 |
+| tenant_id      | 9233b6b4f6a54386af63c0a7b8f043c2     |
+| weight         | 1                                    |
++----------------+--------------------------------------+
+
+root@controller01:~# neutron lbaas-member-create --name web2 \
+> --subnet PROJECT_SUBNET \
+> --address 192.168.200.7 \
+> --protocol-port 80 \
+> POOL_WEB
+Created a new member:
++----------------+--------------------------------------+
+| Field          | Value                                |
++----------------+--------------------------------------+
+| address        | 192.168.200.7                        |
+| admin_state_up | True                                 |
+| id             | 0ec91151-6ef1-4289-ad53-db9e46dc9d60 |
+| name           | web2                                 |
+| protocol_port  | 80                                   |
+| subnet_id      | f29a2257-1283-4047-a835-b207480aa6f3 |
+| tenant_id      | 9233b6b4f6a54386af63c0a7b8f043c2     |
+| weight         | 1                                    |
++----------------+--------------------------------------+
+
+
+root@controller01:~# neutron lbaas-member-list POOL_WEB
++--------------------------------------+------+---------------+---------------+--------+----------------+
+| id                                   | name | address       | protocol_port | weight | admin_state_up |
++--------------------------------------+------+---------------+---------------+--------+----------------+
+| 0ec91151-6ef1-4289-ad53-db9e46dc9d60 | web2 | 192.168.200.7 |            80 |      1 | True           |
+| 9554ae8b-8ced-4074-ab5f-037f0ef440cc | web1 | 192.168.200.9 |            80 |      1 | True           |
++--------------------------------------+------+---------------+---------------+--------+----------------+
+
+root@controller01:~# neutron lbaas-healthmonitor-create \
+> --name MONITOR_WEB \
+> --delay 5 \
+> --max-retries 3 \
+> --timeout 4 \
+> --type HTTP \
+> --pool POOL_WEB
+Created a new healthmonitor:
++------------------+------------------------------------------------+
+| Field            | Value                                          |
++------------------+------------------------------------------------+
+| admin_state_up   | True                                           |
+| delay            | 5                                              |
+| expected_codes   | 200                                            |
+| http_method      | GET                                            |
+| id               | 98cc9c87-d001-4d0a-b317-3e77d21c0689           |
+| max_retries      | 3                                              |
+| max_retries_down | 3                                              |
+| name             | MONITOR_WEB                                    |
+| pools            | {"id": "05762f48-64e8-4e5a-a972-ddc2516c0153"} |
+| tenant_id        | 9233b6b4f6a54386af63c0a7b8f043c2               |
+| timeout          | 4                                              |
+| type             | HTTP                                           |
+| url_path         | /                                              |
++------------------+------------------------------------------------+		
+
+root@controller01:~# neutron lbaas-listener-create \
+> --name LISTENER_WEB \
+> --loadbalancer LB_WEB \
+> --protocol HTTP \
+> --protocol-port 80 \
+> --default-pool POOL_WEB
+Created a new listener:
++---------------------------+------------------------------------------------+
+| Field                     | Value                                          |
++---------------------------+------------------------------------------------+
+| admin_state_up            | True                                           |
+| connection_limit          | -1                                             |
+| default_pool_id           | 05762f48-64e8-4e5a-a972-ddc2516c0153           |
+| default_tls_container_ref |                                                |
+| description               |                                                |
+| id                        | d416b3cb-612f-4a68-a77e-e14cf8bda245           |
+| loadbalancers             | {"id": "137292b2-79cf-447a-8259-39ac9aef6575"} |
+| name                      | LISTENER_WEB                                   |
+| protocol                  | HTTP                                           |
+| protocol_port             | 80                                             |
+| sni_container_refs        |                                                |
+| tenant_id                 | 9233b6b4f6a54386af63c0a7b8f043c2               |
++---------------------------+------------------------------------------------+
+
+root@controller01:~# ip netns
+qrouter-f94e2ec9-1c18-49ab-82bd-2fbcd5608cc4 (id: 5)
+qlbaas-137292b2-79cf-447a-8259-39ac9aef6575 (id: 3)
+qdhcp-db527151-2088-491b-80f3-b06b10715527 (id: 2)
+qdhcp-d8428f56-ba13-4aa7-97bb-76a6feb308bf (id: 1)
+qdhcp-3f05db4d-c4ec-4cee-a616-2cfffbbd296e (id: 0)
+qdhcp-ce1fe7cd-7b01-4d58-b1c8-414886b7d8f2 (id: 4)
+
+
+
+root@controller01:~# ip netns exec qlbaas-137292b2-79cf-447a-8259-39ac9aef6575 ip addr list
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: ns-28d1e4f9-c8@if42: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether fa:16:3e:9a:46:69 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 192.168.200.12/24 brd 192.168.200.255 scope global ns-28d1e4f9-c8
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe9a:4669/64 scope link
+       valid_lft forever preferred_lft forever
+	   
+root@controller01:~# ip netns exec qlbaas-137292b2-79cf-447a-8259-39ac9aef6575 netstat -an
+Active Internet connections (servers and established)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State
+tcp        0      0 192.168.200.12:80       0.0.0.0:*               LISTEN
+Active UNIX domain sockets (servers and established)
+Proto RefCnt Flags       Type       State         I-Node   Path
+unix  2      [ ACC ]     STREAM     LISTENING     13761606 /var/lib/neutron/lbaas/v2/137292b2-79cf-447a-8259-39ac9aef6575/haproxy_stats.sock.27947.tmp
+unix  2      [ ]         DGRAM                    13761608
+
+
+
+root@controller01:~# cat /var/lib/neutron/lbaas/v2/137292b2-79cf-447a-8259-39ac9aef6575/haproxy.conf
+# Configuration for LB_WEB
+global
+    daemon
+    user nobody
+    group haproxy
+    log /dev/log local0
+    log /dev/log local1 notice
+    maxconn 2000
+    stats socket /var/lib/neutron/lbaas/v2/137292b2-79cf-447a-8259-39ac9aef6575/haproxy_stats.sock mode 0666 level user
+
+defaults
+    log global
+    retries 3
+    option redispatch
+    timeout connect 5000
+    timeout client 50000
+    timeout server 50000
+
+frontend d416b3cb-612f-4a68-a77e-e14cf8bda245
+    option tcplog
+    option forwardfor
+    bind 192.168.200.12:80
+    mode http
+    default_backend 05762f48-64e8-4e5a-a972-ddc2516c0153
+
+backend 05762f48-64e8-4e5a-a972-ddc2516c0153
+    mode http
+    balance roundrobin
+    timeout check 4s
+    option httpchk GET /
+    http-check expect rstatus 200
+    server 0ec91151-6ef1-4289-ad53-db9e46dc9d60 192.168.200.7:80 weight 1 check inter 5s fall 3
+    server 9554ae8b-8ced-4074-ab5f-037f0ef440cc 192.168.200.9:80 weight 1 check inter 5s fall 3
+
+
+root@controller01:~# ip netns exec qlbaas-137292b2-79cf-447a-8259-39ac9aef6575 curl http://192.168.200.9
+This is web1
+
+root@controller01:~# ip netns exec qlbaas-137292b2-79cf-447a-8259-39ac9aef6575 curl http://192.168.200.7
+This is web2
+
+root@controller01:~# ip netns exec qlbaas-137292b2-79cf-447a-8259-39ac9aef6575 curl http://192.168.200.12
+This is web1
+root@controller01:~# ip netns exec qlbaas-137292b2-79cf-447a-8259-39ac9aef6575 curl http://192.168.200.12
+This is web2
+root@controller01:~# ip netns exec qlbaas-137292b2-79cf-447a-8259-39ac9aef6575 curl http://192.168.200.12
+This is web1
+root@controller01:~# ip netns exec qlbaas-137292b2-79cf-447a-8259-39ac9aef6575 curl http://192.168.200.12
+This is web2
+
+
+ubuntu@web1:~$ sudo tcpdump -i any port 80
+sudo: unable to resolve host web1
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
+20:33:27.562511 IP 192.168.200.12.51200 > 192.168.200.9.http: Flags [S], seq 3210388089, win 29200, options [mss 1460,sackOK,TS val 1937456932 ecr 0,nop,wscale 7], length 0
+20:33:27.562568 IP 192.168.200.9.http > 192.168.200.12.51200: Flags [S.], seq 3675436603, ack 3210388090, win 28960, options [mss 1460,sackOK,TS val 1145533 ecr 1937456932,nop,wscale 7], length 0
+20:33:27.563384 IP 192.168.200.12.51200 > 192.168.200.9.http: Flags [.], ack 1, win 229, options [nop,nop,TS val 1937456933 ecr 1145533], length 0
+20:33:27.563425 IP 192.168.200.12.51200 > 192.168.200.9.http: Flags [P.], seq 1:38, ack 1, win 229, options [nop,nop,TS val 1937456933 ecr 1145533], length 37: HTTP: GET / HTTP/1.0
+20:33:27.563440 IP 192.168.200.9.http > 192.168.200.12.51200: Flags [.], ack 38, win 227, options [nop,nop,TS val 1145533 ecr 1937456933], length 0
+20:33:27.564620 IP 192.168.200.9.http > 192.168.200.12.51200: Flags [P.], seq 1:18, ack 38, win 227, options [nop,nop,TS val 1145534 ecr 1937456933], length 17: HTTP: HTTP/1.0 200 OK
+20:33:27.565113 IP 192.168.200.12.51200 > 192.168.200.9.http: Flags [.], ack 18, win 229, options [nop,nop,TS val 1937456935 ecr 1145534], length 0
+
+
+20:33:32.567675 IP 192.168.200.12.51204 > 192.168.200.9.http: Flags [S], seq 4060977270, win 29200, options [mss 1460,sackOK,TS val 1937461937 ecr 0,nop,wscale 7], length 0
+20:33:32.567733 IP 192.168.200.9.http > 192.168.200.12.51204: Flags [S.], seq 1312653812, ack 4060977271, win 28960, options [mss 1460,sackOK,TS val 1146784 ecr 1937461937,nop,wscale 7], length 0
+20:33:32.569304 IP 192.168.200.12.51204 > 192.168.200.9.http: Flags [.], ack 1, win 229, options [nop,nop,TS val 1937461939 ecr 1146784], length 0
+20:33:32.570146 IP 192.168.200.12.51204 > 192.168.200.9.http: Flags [P.], seq 1:38, ack 1, win 229, options [nop,nop,TS val 1937461939 ecr 1146784], length 37: HTTP: GET / HTTP/1.0
+20:33:32.570271 IP 192.168.200.9.http > 192.168.200.12.51204: Flags [.], ack 38, win 227, options [nop,nop,TS val 1146785 ecr 1937461939], length 0
+20:33:32.570970 IP 192.168.200.9.http > 192.168.200.12.51204: Flags [P.], seq 1:18, ack 38, win 227, options [nop,nop,TS val 1146785 ecr 1937461939], length 17: HTTP: HTTP/1.0 200 OK
+20:33:32.571436 IP 192.168.200.9.http > 192.168.200.12.51204: Flags [FP.], seq 18:199, ack 38, win 227, options [nop,nop,TS val 1146785 ecr 1937461939], length 181: HTTP
+20:33:32.571892 IP 192.168.200.12.51204 > 192.168.200.9.http: Flags [.], ack 18, win 229, options [nop,nop,TS val 1937461941 ecr 1146785], length 0
+20:33:32.571908 IP 192.168.200.12.51204 > 192.168.200.9.http: Flags [R.], seq 38, ack 18, win 229, options [nop,nop,TS val 1937461941 ecr 1146785], length 0
+20:33:32.571919 IP 192.168.200.12.51204 > 192.168.200.9.http: Flags [R], seq 4060977308, win 0, length 0
+
+
+20:33:37.573026 IP 192.168.200.12.51208 > 192.168.200.9.http: Flags [S], seq 2893550145, win 29200, options [mss 1460,sackOK,TS val 1937466942 ecr 0,nop,wscale 7], length 0
+20:33:37.573085 IP 192.168.200.9.http > 192.168.200.12.51208: Flags [S.], seq 764077658, ack 2893550146, win 28960, options [mss 1460,sackOK,TS val 1148036 ecr 1937466942,nop,wscale 7], length 0
+20:33:37.574143 IP 192.168.200.12.51208 > 192.168.200.9.http: Flags [.], ack 1, win 229, options [nop,nop,TS val 1937466944 ecr 1148036], length 0
+20:33:37.574740 IP 192.168.200.12.51208 > 192.168.200.9.http: Flags [P.], seq 1:38, ack 1, win 229, options [nop,nop,TS val 1937466944 ecr 1148036], length 37: HTTP: GET / HTTP/1.0
+20:33:37.574762 IP 192.168.200.9.http > 192.168.200.12.51208: Flags [.], ack 38, win 227, options [nop,nop,TS val 1148036 ecr 1937466944], length 0
+20:33:37.576198 IP 192.168.200.9.http > 192.168.200.12.51208: Flags [P.], seq 1:18, ack 38, win 227, options [nop,nop,TS val 1148037 ecr 1937466944], length 17: HTTP: HTTP/1.0 200 OK
+20:33:37.576834 IP 192.168.200.12.51208 > 192.168.200.9.http: Flags [.], ack 18, win 229, options [nop,nop,TS val 1937466946 ecr 1148037], length 0
+20:33:37.576860 IP 192.168.200.9.http > 192.168.200.12.51208: Flags [P.], seq 18:56, ack 38, win 227, options [nop,nop,TS val 1148037 ecr 1937466946], length 38: HTTP
+20:33:37.576940 IP 192.168.200.12.51208 > 192.168.200.9.http: Flags [R.], seq 38, ack 18, win 229, options [nop,nop,TS val 1937466946 ecr 1148037], length 0
+20:33:37.577335 IP 192.168.200.12.51208 > 192.168.200.9.http: Flags [R], seq 2893550183, win 0, length 0
+
+
+
+ubuntu@web1:~$ sudo tcpdump -i any port 80
+sudo: unable to resolve host web1
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
+20:05:28.920882 IP 192.168.200.12.38842 > 192.168.200.9.http: Flags [S], seq 1190505067, win 29200, options [mss 1460,sackOK,TS val 2022180075 ecr 0,nop,wscale 7], length 0
+20:05:28.920932 IP 192.168.200.9.http > 192.168.200.12.38842: Flags [R.], seq 0, ack 1190505068, win 0, length 0
+
+20:05:33.924053 IP 192.168.200.12.38846 > 192.168.200.9.http: Flags [S], seq 1440376660, win 29200, options [mss 1460,sackOK,TS val 2022185079 ecr 0,nop,wscale 7], length 0
+20:05:33.924105 IP 192.168.200.9.http > 192.168.200.12.38846: Flags [R.], seq 0, ack 1440376661, win 0, length 0
+
+20:05:38.925611 IP 192.168.200.12.38850 > 192.168.200.9.http: Flags [S], seq 1530860699, win 29200, options [mss 1460,sackOK,TS val 2022190080 ecr 0,nop,wscale 7], length 0
+20:05:38.925662 IP 192.168.200.9.http > 192.168.200.12.38850: Flags [R.], seq 0, ack 1530860700, win 0, length 0
+
+root@controller01:~# tail -f /var/log/haproxy.log
+May 18 20:05:18 controller01 haproxy[27950]: Server 05762f48-64e8-4e5a-a972-ddc2516c0153/9554ae8b-8ced-4074-ab5f-037f0ef440cc is DOWN, reason: Layer4 connection problem, info: "Connection refused", check duration: 1ms. 1 active and 0 backup servers left. 0 sessions active, 0 requeued, 0 remaining in queue.
+						  
+						  
+root@controller01:~# ip netns exec qlbaas-137292b2-79cf-447a-8259-39ac9aef6575 curl http://192.168.200.12
+This is web2
+root@controller01:~# ip netns exec qlbaas-137292b2-79cf-447a-8259-39ac9aef6575 curl http://192.168.200.12
+This is web2
+root@controller01:~# ip netns exec qlbaas-137292b2-79cf-447a-8259-39ac9aef6575 curl http://192.168.200.12
+This is web2
+root@controller01:~# ip netns exec qlbaas-137292b2-79cf-447a-8259-39ac9aef6575 curl http://192.168.200.12
+This is web2
+
+
+root@controller01:~# neutron lbaas-loadbalancer-show LB_WEB
++---------------------+------------------------------------------------+
+| Field               | Value                                          |
++---------------------+------------------------------------------------+
+| admin_state_up      | True                                           |
+| description         |                                                |
+| id                  | 137292b2-79cf-447a-8259-39ac9aef6575           |
+| listeners           | {"id": "d416b3cb-612f-4a68-a77e-e14cf8bda245"} |
+| name                | LB_WEB                                         |
+| operating_status    | ONLINE                                         |
+| pools               | {"id": "05762f48-64e8-4e5a-a972-ddc2516c0153"} |
+| provider            | haproxy                                        |
+| provisioning_status | ACTIVE                                         |
+| tenant_id           | 9233b6b4f6a54386af63c0a7b8f043c2               |
+| vip_address         | 192.168.200.12                                 |
+| vip_port_id         | 28d1e4f9-c81a-4c82-90b5-20bf1eb5aa3d           |
+| vip_subnet_id       | f29a2257-1283-4047-a835-b207480aa6f3           |
++---------------------+------------------------------------------------+
+
+root@controller01:~# openstack floating ip create --port 28d1e4f9-c81a-4c82-90b5-20bf1eb5aa3d GATEWAY_NET
++---------------------+--------------------------------------+
+| Field               | Value                                |
++---------------------+--------------------------------------+
+| created_at          | 2018-05-18T20:25:03Z                 |
+| description         |                                      |
+| fixed_ip_address    | 192.168.200.12                       |
+| floating_ip_address | 10.30.0.100                          |
+| floating_network_id | 758070f9-ecaf-4d2a-aa49-e119ce7943f6 |
+| id                  | b3b729d5-e36a-4c4a-bcc7-ab05c69ea8d7 |
+| name                | 10.30.0.100                          |
+| port_id             | 28d1e4f9-c81a-4c82-90b5-20bf1eb5aa3d |
+| project_id          | 9233b6b4f6a54386af63c0a7b8f043c2     |
+| revision_number     | 0                                    |
+| router_id           | 9822b80c-7548-43f7-8a03-70c5baf6c9c0 |
+| status              | DOWN                                 |
+| updated_at          | 2018-05-18T20:25:03Z                 |
++---------------------+--------------------------------------+
+
+
+workstation:~ jdenton$ curl http://10.30.0.100
+This is web2
+workstation:~ jdenton$ curl http://10.30.0.100
+This is web1
+workstation:~ jdenton$ curl http://10.30.0.100
+This is web2
+workstation:~ jdenton$ curl http://10.30.0.100
+This is web1
+
+--- Horizon Install
+
+# apt install python-neutron-lbaas-dashboard
+
+--- /etc/openstackdashboard/local_settings.py
+
+OPENSTACK_NEUTRON_NETWORK = {
+'enable_router': True,
+'enable_quotas': False,
+'enable_ipv6': False,
+'enable_distributed_router': False,
+'enable_ha_router': False,
+'enable_lb': True,
+'enable_firewall': False,
+'enable_vpn': False,
+'enable_fip_topology_check': False,
+}
+
+--- Restart Apache
+
+# systemctl restart apache2
+

@@ -1,0 +1,457 @@
+= Controller01 =
+
+auto eth0
+iface eth0 inet static
+  address 10.10.0.100
+  netmask 255.255.255.0
+  gateway 10.10.0.1
+  dns-nameserver 8.8.8.8
+  
+auto eth1
+iface eth1 inet static
+  address 10.20.0.100
+  netmask 255.255.255.0
+  
+auto eth2
+iface eth2 inet manual
+	
+= Compute01 =
+
+auto eth0
+iface eth0 inet static
+  address 10.10.0.101
+  netmask 255.255.255.0
+  gateway 10.10.0.1
+  dns-nameserver 8.8.8.8
+  
+auto eth1
+iface eth1 inet static
+  address 10.20.0.101
+  netmask 255.255.255.0
+  
+auto eth2
+iface eth2 inet manual
+
+= Compute 02 =
+
+auto eth0
+iface eth0 inet static
+  address 10.10.0.102
+  netmask 255.255.255.0
+  gateway 10.10.0.1
+  dns-nameserver 8.8.8.8
+  
+auto eth1
+iface eth1 inet static
+  address 10.20.0.102
+  netmask 255.255.255.0
+  
+auto eth2
+iface eth2 inet manual
+	
+= Compute03 =
+
+auto eth0
+iface eth0 inet static
+  address 10.10.0.103
+  netmask 255.255.255.0
+  gateway 10.10.0.1
+  dns-nameserver 8.8.8.8
+  
+auto eth1
+iface eth1 inet static
+  address 10.20.0.103
+  netmask 255.255.255.0
+  
+auto eth2
+iface eth2 inet manual
+	
+= Snat01 =
+
+auto eth0
+iface eth0 inet static
+  address 10.10.0.104
+  netmask 255.255.255.0
+  gateway 10.10.0.1
+  dns-nameserver 8.8.8.8
+  
+auto eth1
+iface eth1 inet static
+  address 10.20.0.104
+  netmask 255.255.255.0
+  
+auto eth2
+iface eth2 inet manual
+
+--- Upgrades
+
+# apt update    
+# apt dist-upgrade
+
+--- /etc/hosts
+
+10.10.0.100 controller01.learningneutron.com controller01 
+10.10.0.101 compute01.learningneutron.com compute01 
+10.10.0.102 compute02.learningneutron.com compute02 
+10.10.0.103 compute03.learningneutron.com compute03 
+10.10.0.104 snat01.learningneutron.com snat01
+
+--- /etc/chrony/chrony.conf
+
+allow 10.10.0.0/24
+# pool 2.debian.pool.ntp.org offline iburst
+server controller01 iburst
+
+--- /etc/mysql/mariadb.conf.d/99-openstack.cnf
+
+[mysqld]
+bind-address = 10.10.0.100
+default-storage-engine = innodb
+innodb_file_per_table = on
+max_connections = 4096
+collation-server = utf8_general_ci
+character-set-server = utf8
+
+--- Keystone database
+
+CREATE DATABASE keystone;
+GRANT ALL PRIVILEGES ON keystone.* TO 'keystone'@'localhost' IDENTIFIED BY
+'keystone';
+GRANT ALL PRIVILEGES ON keystone.* TO 'keystone'@'%' IDENTIFIED BY
+'keystone';
+quit;
+
+--- /etc/keystone/keystone.conf
+
+[database] 
+connection = mysql+pymysql://keystone:keystone@controller01/keystone
+
+[token]
+provider = fernet
+
+--- keystone-manage
+
+# su -s /bin/sh -c "keystone-manage db_sync" keystone
+# keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone
+# keystone-manage credential_setup --keystone-user keystone --keystone-group keystone
+
+--- Bootstrap
+
+# keystone-manage bootstrap --bootstrap-password openstack \
+--bootstrap-admin-url http://controller01:35357/v3/ \
+--bootstrap-internal-url http://controller01:5000/v3/ \
+--bootstrap-public-url http://controller01:5000/v3/ \
+--bootstrap-region-id RegionOne
+
+--- Apache2
+
+# sed -i '1s/^/ServerName controller01\n&/' /etc/apache2/apache2.conf
+
+--- ENV
+
+# cat >> ~/adminrc <<EOF
+export OS_PROJECT_DOMAIN_NAME=default
+export OS_USER_DOMAIN_NAME=default
+export OS_PROJECT_NAME=admin
+export OS_USERNAME=admin
+export OS_PASSWORD=openstack
+export OS_AUTH_URL=http://controller01:35357/v3
+export OS_IDENTITY_API_VERSION=3
+EOF
+
+
+# cat >> ~/demorc <<EOF
+export OS_PROJECT_DOMAIN_NAME=default
+export OS_USER_DOMAIN_NAME=default
+export OS_PROJECT_NAME=demo
+export OS_USERNAME=demo
+export OS_PASSWORD=demo
+export OS_AUTH_URL=http://controller01:35357/v3
+export OS_IDENTITY_API_VERSION=3
+EOF
+
+--- Users, projects, roles
+
+# openstack project create --description "Service Project" service
+# openstack project create --description "Demo Project" demo
+# openstack user create demo --password=demo
+# openstack role create user
+# openstack role add --project demo --user demo user
+
+--- Glance DB
+
+CREATE DATABASE glance;
+GRANT ALL PRIVILEGES ON glance.* TO 'glance'@'localhost' IDENTIFIED BY 'glance';
+GRANT ALL PRIVILEGES ON glance.* TO 'glance'@'%' IDENTIFIED BY 'glance';
+quit;
+
+--- Glance endpoints
+
+# openstack user create glance --domain default --password=glance
+# openstack role add --project service --user glance admin
+# openstack service create --name glance \
+--description "OpenStack Image" image 
+
+# openstack endpoint create --region RegionOne \
+  image public http://controller01:9292
+# openstack endpoint create --region RegionOne \
+  image internal http://controller01:9292
+# openstack endpoint create --region RegionOne \
+  image admin http://controller01:9292
+
+--- /etc/glance/glance-api.conf 
+
+[database]
+connection = mysql+pymysql://glance:glance@controller01/glance
+
+[keystone_authtoken]
+auth_uri = http://controller01:5000
+auth_url= http://controller01:35357
+memcached_servers = controller01:11211
+auth_type = password
+user_domain_name = default
+project_domain_name = default
+project_name = service
+username = glance
+password = glance
+
+[paste_deploy]
+flavor = keystone
+
+[glance_store]
+stores = file,http
+default_store = file
+filesystem_store_datadir = /var/lib/glance/images
+
+
+
+--- /etc/glance/glance-registry.conf
+
+[database]
+connection = mysql+pymysql://glance:glance@controller01/glance
+
+[keystone_authtoken]
+auth_uri = http://controller01:5000
+auth_url= http://controller01:35357
+memcached_servers = controller01:11211
+auth_type = password
+user_domain_name = default
+project_domain_name = default
+project_name = service
+username = glance
+password = glance
+
+[paste_deploy]
+flavor = keystone
+
+--- glance-manage
+
+# su -s /bin/sh -c "glance-manage db_sync" glance
+# systemctl restart glance-registry glance-api
+
+--- Images
+
+# source ~/adminrc
+# mkdir /tmp/images
+# wget -P /tmp/images http://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img
+
+# openstack image create "cirros-0.4.0" \
+  --file /tmp/images/cirros-0.4.0-x86_64-disk.img\
+  --disk-format qcow2 --container-format bare \
+  --public
+  
+# wget -P /tmp/images http://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-disk1.img
+
+# openstack image create "ubuntu-xenial-16.04" \
+  --file /tmp/images/xenial-server-cloudimg-amd64-disk1.img\
+  --disk-format qcow2 --container-format bare \
+  --public
+
+--- Compute DB
+
+CREATE DATABASE nova;
+CREATE DATABASE nova_api;
+CREATE DATABASE nova_cell0;
+GRANT ALL PRIVILEGES ON nova.* TO 'nova'@'localhost' IDENTIFIED BY 'nova';
+GRANT ALL PRIVILEGES ON nova.* TO 'nova'@'%' IDENTIFIED BY 'nova';
+GRANT ALL PRIVILEGES ON nova_api.* TO 'nova'@'localhost' IDENTIFIED BY 'nova';
+GRANT ALL PRIVILEGES ON nova_api.* TO 'nova'@'%' IDENTIFIED BY 'nova';
+GRANT ALL PRIVILEGES ON nova_cell0.* TO 'nova'@'localhost' IDENTIFIED BY 'nova';
+GRANT ALL PRIVILEGES ON nova_cell0.* TO 'nova'@'%' IDENTIFIED BY 'nova';
+quit;
+
+--- Compute endpoints
+
+
+# source ~/adminrc
+# openstack user create nova --domain default --password=nova
+# openstack user create placement \
+--domain default --password=placement
+
+# openstack role add --project service --user nova admin
+# openstack role add --project service --user placement admin
+
+# openstack service create --name nova \
+--description "OpenStack Compute" compute 
+# openstack service create --name placement \
+--description "Placement API" placement 
+
+# openstack endpoint create --region RegionOne \
+  compute public http://controller01:8774/v2.1
+# openstack endpoint create --region RegionOne \
+  compute internal http://controller01:8774/v2.1
+# openstack endpoint create --region RegionOne \
+  compute admin http://controller01:8774/v2.1
+# openstack endpoint create --region RegionOne \
+  placement public http://controller01:8778
+# openstack endpoint create --region RegionOne \
+  placement internal http://controller01:8778
+# openstack endpoint create --region RegionOne \
+  placement admin http://controller01:8778
+
+--- Compute install (controller)
+
+# apt install nova-api nova-conductor nova-consoleauth \
+nova-novncproxy nova-scheduler nova-placement-api
+
+--- /etc/nova/nova.conf 
+
+[DEFAULT] 
+transport_url = rabbit://openstack:rabbit@controller01
+
+[vnc]
+enabled = true
+vncserver_listen = 10.10.0.100
+vncserver_proxyclient_address = 10.10.0.100
+
+[database]
+connection = mysql+pymysql://nova:nova@controller01/nova
+
+[api_database]
+connection = mysql+pymysql://nova:nova@controller01/nova_api
+
+[api]
+auth_strategy = keystone
+
+[keystone_authtoken] 
+auth_uri = http://controller01:5000
+auth_url = http://controller01:35357
+memcached_servers = controller01:11211
+auth_type = password
+project_domain_name = Default
+user_domain_name = Default
+project_name = service
+username = nova
+password = nova
+
+[glance]
+api_servers= http://controller01:9292
+
+[oslo_concurrency]
+lock_path = /var/lib/nova/tmp
+
+[DEFAULT]
+my_ip = 10.10.0.100
+
+[placement]
+os_region_name = RegionOne
+auth_url = http://controller01:35357/v3
+auth_type = password
+project_domain_name = Default
+user_domain_name = Default
+project_name = service
+username = placement
+password = placement
+
+--- nova-manage
+
+# su -s /bin/sh -c "nova-manage api_db sync" nova
+# su -s /bin/sh -c "nova-manage cell_v2 map_cell0" nova
+# su -s /bin/sh -c "nova-manage cell_v2 create_cell \
+--name=cell1 --verbose" nova
+# su -s /bin/sh -c "nova-manage db sync" nova
+
+# systemctl restart nova-api nova-consoleauth nova-scheduler \
+nova-conductor nova-novncproxy
+
+--- Compute install (computes)
+
+# apt install nova-compute
+
+--- /etc/nova/nova.conf (computes)
+
+[api]
+auth_strategy = keystone
+
+[keystone_authtoken]
+auth_uri = http://controller01:5000
+auth_url = http://controller01:35357
+memcached_servers = controller01:11211
+auth_type = password
+project_domain_name = Default
+user_domain_name = Default
+project_name = service
+username = nova
+password = nova
+
+[DEFAULT] 
+transport_url = rabbit://openstack:rabbit@controller01
+
+[DEFAULT]
+my_ip = 10.10.0.101 <--- This will vary. See table in book.
+
+[glance]
+api_servers= http://controller01:9292
+
+[oslo_concurrency]
+lock_path = /var/lib/nova/tmp
+
+[placement]
+os_region_name = RegionOne
+auth_url = http://controller01:35357/v3
+auth_type = password
+project_domain_name = Default
+user_domain_name = Default
+project_name = service
+username = placement
+password = placement
+
+--- Dashboard install
+
+# apt install openstack-dashboard
+
+--- etc/openstack-dashboard/local_settings.py 
+
+OPENSTACK_HOST = "controller01"
+
+OPENSTACK_API_VERSIONS = {
+    "identity": 3,
+    "image": 2,
+    "volume": 2,
+}
+
+OPENSTACK_KEYSTONE_URL = "http://%s:5000/v3" % OPENSTACK_HOST
+OPENSTACK_KEYSTONE_MULTIDOMAIN_SUPPORT = True
+OPENSTACK_KEYSTONE_DEFAULT_DOMAIN = "Default"
+OPENSTACK_KEYSTONE_DEFAULT_ROLE = "user"
+
+OPENSTACK_NEUTRON_NETWORK = {
+    'enable_router': False,
+    'enable_quotas': False,
+    'enable_ipv6': False,
+    'enable_distributed_router': False,
+    'enable_ha_router': False,
+    'enable_lb': False,
+    'enable_firewall': False,
+    'enable_vpn': False,
+    'enable_fip_topology_check': False,
+}
+
+DEFAULT_THEME = 'default'
+
+--- Reload Apache
+
+# systemctl reload apache2 
+
+
+

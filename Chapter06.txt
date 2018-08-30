@@ -1,0 +1,428 @@
+root@controller01:~# openstack network create --provider-network-type flat \
+> --provider-physical-network physnet1 \
+> --share \
+> MyFlatNetwork
++---------------------------+--------------------------------------+
+| Field                     | Value                                |
++---------------------------+--------------------------------------+
+| admin_state_up            | UP                                   |
+| availability_zone_hints   |                                      |
+| availability_zones        |                                      |
+| created_at                | 2018-01-08T19:04:53Z                 |
+| description               |                                      |
+| dns_domain                | None                                 |
+| id                        | d51943ef-8061-4bdb-b684-8a7d2b7ce73b |
+| ipv4_address_scope        | None                                 |
+| ipv6_address_scope        | None                                 |
+| is_default                | None                                 |
+| is_vlan_transparent       | None                                 |
+| mtu                       | 1500                                 |
+| name                      | MyFlatNetwork                        |
+| port_security_enabled     | False                                |
+| project_id                | 877f949397ad428cbeaac4e5123bad83     |
+| provider:network_type     | flat                                 |
+| provider:physical_network | physnet1                             |
+| provider:segmentation_id  | None                                 |
+| qos_policy_id             | None                                 |
+| revision_number           | 1                                    |
+| router:external           | Internal                             |
+| segments                  | None                                 |
+| shared                    | True                                 |
+| status                    | ACTIVE                               |
+| subnets                   |                                      |
+| tags                      |                                      |
+| updated_at                | 2018-01-08T19:04:53Z                 |
++---------------------------+--------------------------------------+
+
+
+root@controller01:~# openstack network create --provider-network-type flat \
+> --provider-physical-network physnet1 \
+> MyFlatNetwork2
+Error while executing command: Conflict (HTTP 409) (Request-ID: req-47d76ebf-fd4c-48e4-90c1-21498199d761)
+
+
+root@controller01:~# openstack network create \
+> --provider-network-type vlan \
+> --provider-physical-network physnet1 \
+> --provider-segment 300 \
+> MyVLANNetwork
++---------------------------+--------------------------------------+
+| Field                     | Value                                |
++---------------------------+--------------------------------------+
+| admin_state_up            | UP                                   |
+| availability_zone_hints   |                                      |
+| availability_zones        |                                      |
+| created_at                | 2018-01-09T13:32:28Z                 |
+| description               |                                      |
+| dns_domain                | None                                 |
+| id                        | b2ca3d41-c79c-416a-8e86-0bb01060ddec |
+| ipv4_address_scope        | None                                 |
+| ipv6_address_scope        | None                                 |
+| is_default                | None                                 |
+| is_vlan_transparent       | None                                 |
+| mtu                       | 1500                                 |
+| name                      | MyVLANNetwork                        |
+| port_security_enabled     | False                                |
+| project_id                | 877f949397ad428cbeaac4e5123bad83     |
+| provider:network_type     | vlan                                 |
+| provider:physical_network | physnet1                             |
+| provider:segmentation_id  | 300                                  |
+| qos_policy_id             | None                                 |
+| revision_number           | 1                                    |
+| router:external           | Internal                             |
+| segments                  | None                                 |
+| shared                    | False                                |
+| status                    | ACTIVE                               |
+| subnets                   |                                      |
+| tags                      |                                      |
+| updated_at                | 2018-01-09T13:32:28Z                 |
++---------------------------+--------------------------------------+
+
+root@controller01:~# openstack network create \
+> --provider-network-type vlan \
+> --provider-physical-network physnet1 \
+> --provider-segment 301 \
+> MyVLANNetwork2
++---------------------------+--------------------------------------+
+| Field                     | Value                                |
++---------------------------+--------------------------------------+
+| admin_state_up            | UP                                   |
+| availability_zone_hints   |                                      |
+| availability_zones        |                                      |
+| created_at                | 2018-01-09T13:34:39Z                 |
+| description               |                                      |
+| dns_domain                | None                                 |
+| id                        | 9cd264e9-d3b7-415e-bf49-5efe3463c18d |
+| ipv4_address_scope        | None                                 |
+| ipv6_address_scope        | None                                 |
+| is_default                | None                                 |
+| is_vlan_transparent       | None                                 |
+| mtu                       | 1500                                 |
+| name                      | MyVLANNetwork2                       |
+| port_security_enabled     | False                                |
+| project_id                | 877f949397ad428cbeaac4e5123bad83     |
+| provider:network_type     | vlan                                 |
+| provider:physical_network | physnet1                             |
+| provider:segmentation_id  | 301                                  |
+| qos_policy_id             | None                                 |
+| revision_number           | 1                                    |
+| router:external           | Internal                             |
+| segments                  | None                                 |
+| shared                    | False                                |
+| status                    | ACTIVE                               |
+| subnets                   |                                      |
+| tags                      |                                      |
+| updated_at                | 2018-01-09T13:34:40Z                 |
++---------------------------+--------------------------------------+
+
+root@controller01:~# openstack network list
++--------------------------------------+----------------+---------+
+| ID                                   | Name           | Subnets |
++--------------------------------------+----------------+---------+
+| 9cd264e9-d3b7-415e-bf49-5efe3463c18d | MyVLANNetwork2 |         |
+| b2ca3d41-c79c-416a-8e86-0bb01060ddec | MyVLANNetwork  |         |
+| d51943ef-8061-4bdb-b684-8a7d2b7ce73b | MyFlatNetwork  |         |
++--------------------------------------+----------------+---------+
+
+root@controller01:~# openstack network show MyVLANNetwork
++---------------------------+--------------------------------------+
+| Field                     | Value                                |
++---------------------------+--------------------------------------+
+| admin_state_up            | UP                                   |
+| availability_zone_hints   |                                      |
+| availability_zones        |                                      |
+| created_at                | 2018-01-09T13:32:28Z                 |
+| description               |                                      |
+| dns_domain                | None                                 |
+| id                        | b2ca3d41-c79c-416a-8e86-0bb01060ddec |
+| ipv4_address_scope        | None                                 |
+| ipv6_address_scope        | None                                 |
+| is_default                | None                                 |
+| is_vlan_transparent       | None                                 |
+| mtu                       | 1500                                 |
+| name                      | MyVLANNetwork                        |
+| port_security_enabled     | False                                |
+| project_id                | 877f949397ad428cbeaac4e5123bad83     |
+| provider:network_type     | vlan                                 |
+| provider:physical_network | physnet1                             |
+| provider:segmentation_id  | 300                                  |
+| qos_policy_id             | None                                 |
+| revision_number           | 1                                    |
+| router:external           | Internal                             |
+| segments                  | None                                 |
+| shared                    | False                                |
+| status                    | ACTIVE                               |
+| subnets                   |                                      |
+| tags                      |                                      |
+| updated_at                | 2018-01-09T13:32:28Z                 |
++---------------------------+--------------------------------------+
+
+root@controller01:~# openstack subnet create \
+> --subnet-range 192.168.100.0/24 \
+> --gateway 192.168.100.1 \
+> --ip-version 4 \
+> --network MyFlatNetwork \
+> --dns-nameserver 8.8.8.8 \
+> --dns-nameserver 8.8.4.4 \
+> MyFlatSubnet
++-------------------------+--------------------------------------+
+| Field                   | Value                                |
++-------------------------+--------------------------------------+
+| allocation_pools        | 192.168.100.2-192.168.100.254        |
+| cidr                    | 192.168.100.0/24                     |
+| created_at              | 2018-01-15T01:22:50Z                 |
+| description             |                                      |
+| dns_nameservers         | 8.8.4.4, 8.8.8.8                     |
+| enable_dhcp             | True                                 |
+| gateway_ip              | 192.168.100.1                        |
+| host_routes             |                                      |
+| id                      | 63eaa79b-8129-4fc4-a783-cc7ba917d462 |
+| ip_version              | 4                                    |
+| ipv6_address_mode       | None                                 |
+| ipv6_ra_mode            | None                                 |
+| name                    | MyFlatSubnet                         |
+| network_id              | d51943ef-8061-4bdb-b684-8a7d2b7ce73b |
+| project_id              | 877f949397ad428cbeaac4e5123bad83     |
+| revision_number         | 0                                    |
+| segment_id              | None                                 |
+| service_types           |                                      |
+| subnetpool_id           | None                                 |
+| tags                    |                                      |
+| updated_at              | 2018-01-15T01:22:50Z                 |
+| use_default_subnet_pool | None                                 |
++-------------------------+--------------------------------------+
+
+root@controller01:~# openstack subnet list
++--------------------------------------+--------------+--------------------------------------+------------------+
+| ID                                   | Name         | Network                              | Subnet           |
++--------------------------------------+--------------+--------------------------------------+------------------+
+| 63eaa79b-8129-4fc4-a783-cc7ba917d462 | MyFlatSubnet | d51943ef-8061-4bdb-b684-8a7d2b7ce73b | 192.168.100.0/24 |
++--------------------------------------+--------------+--------------------------------------+------------------+
+
+root@controller01:~# openstack subnet show MyFlatSubnet
++-------------------------+--------------------------------------+
+| Field                   | Value                                |
++-------------------------+--------------------------------------+
+| allocation_pools        | 192.168.100.2-192.168.100.254        |
+| cidr                    | 192.168.100.0/24                     |
+| created_at              | 2018-01-15T01:22:50Z                 |
+| description             |                                      |
+| dns_nameservers         | 8.8.4.4, 8.8.8.8                     |
+| enable_dhcp             | True                                 |
+| gateway_ip              | 192.168.100.1                        |
+| host_routes             |                                      |
+| id                      | 63eaa79b-8129-4fc4-a783-cc7ba917d462 |
+| ip_version              | 4                                    |
+| ipv6_address_mode       | None                                 |
+| ipv6_ra_mode            | None                                 |
+| name                    | MyFlatSubnet                         |
+| network_id              | d51943ef-8061-4bdb-b684-8a7d2b7ce73b |
+| project_id              | 877f949397ad428cbeaac4e5123bad83     |
+| revision_number         | 0                                    |
+| segment_id              | None                                 |
+| service_types           |                                      |
+| subnetpool_id           | None                                 |
+| tags                    |                                      |
+| updated_at              | 2018-01-15T01:22:50Z                 |
+| use_default_subnet_pool | None                                 |
++-------------------------+--------------------------------------+
+
+root@controller01:~# openstack port list
++------------------------------+------+-------------------+--------------------------------------------------------------------------------+--------+
+| ID                           | Name | MAC Address       | Fixed IP Addresses                                                             | Status |
++------------------------------+------+-------------------+--------------------------------------------------------------------------------+--------+
+| 1f48a8f5-<snip>-91fd82cce7c1 |      | fa:16:3e:d0:95:55 | ip_address='192.168.100.2', subnet_id='63eaa79b-8129-4fc4-a783-cc7ba917d462'   | ACTIVE |
+| 5a962785-<snip>-377415cbfdcf |      | fa:16:3e:85:64:17 | ip_address='192.168.206.2', subnet_id='9cb3e07c-cc91-44c4-b8be-082043720db1'   | ACTIVE |
+| 603d3937-<snip>-ca2af1dea42e |      | fa:16:3e:be:12:f4 | ip_address='192.168.204.200', subnet_id='6cfffc42-0366-447f-89ef-5bad385322ff' | ACTIVE |
++------------------------------+------+-------------------+--------------------------------------------------------------------------------+--------+
+
+root@controller01:~# openstack port show 1f48a8f5-10d5-4985-9ff2-91fd82cce7c1
++-----------------------+-------------------------------------------------------------------------------+
+| Field                 | Value                                                                         |
++-----------------------+-------------------------------------------------------------------------------+
+| admin_state_up        | UP                                                                            |
+| allowed_address_pairs |                                                                               |
+| binding_host_id       | book-controller01                                                             |
+| binding_profile       |                                                                               |
+| binding_vif_details   | port_filter='True'                                                            |
+| binding_vif_type      | bridge                                                                        |
+| binding_vnic_type     | normal                                                                        |
+| created_at            | 2018-01-15T01:22:51Z                                                          |
+| data_plane_status     | None                                                                          |
+| description           |                                                                               |
+| device_id             | dhcpa6f16a08-9242-5c9a-85e6-61f4c10cded7-d51943ef-8061-4bdb-b684-8a7d2b7ce73b |
+| device_owner          | network:dhcp                                                                  |
+| dns_assignment        | None                                                                          |
+| dns_name              | None                                                                          |
+| extra_dhcp_opts       |                                                                               |
+| fixed_ips             | ip_address='192.168.100.2', subnet_id='63eaa79b-8129-4fc4-a783-cc7ba917d462'  |
+| id                    | 1f48a8f5-10d5-4985-9ff2-91fd82cce7c1                                          |
+| ip_address            | None                                                                          |
+| mac_address           | fa:16:3e:d0:95:55                                                             |
+| name                  |                                                                               |
+| network_id            | d51943ef-8061-4bdb-b684-8a7d2b7ce73b                                          |
+| option_name           | None                                                                          |
+| option_value          | None                                                                          |
+| port_security_enabled | False                                                                         |
+| project_id            | 877f949397ad428cbeaac4e5123bad83                                              |
+| qos_policy_id         | None                                                                          |
+| revision_number       | 5                                                                             |
+| security_group_ids    |                                                                               |
+| status                | ACTIVE                                                                        |
+| subnet_id             | None                                                                          |
+| tags                  |                                                                               |
+| trunk_details         | None                                                                          |
+| updated_at            | 2018-01-15T01:23:00Z                                                          |
++-----------------------+-------------------------------------------------------------------------------+
+
+							  
+root@controller01:~# ip netns exec qdhcp-d51943ef-8061-4bdb-b684-8a7d2b7ce73b ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: ns-1f48a8f5-10@if8: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether fa:16:3e:d0:95:55 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 192.168.100.2/24 brd 192.168.100.255 scope global ns-1f48a8f5-10
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fed0:9555/64 scope link
+       valid_lft forever preferred_lft forever						  
+
+
+
+root@controller01:~# openstack port show 1f48a8f5-10d5-4985-9ff2-91fd82cce7c1 -c id -c mac_address
++-------------+--------------------------------------+
+| Field       | Value                                |
++-------------+--------------------------------------+
+| id          | 1f48a8f5-10d5-4985-9ff2-91fd82cce7c1 |
+| mac_address | fa:16:3e:d0:95:55                    |
++-------------+--------------------------------------+
+
+root@book-controller01:~# ip netns
+qdhcp-b2ca3d41-c79c-416a-8e86-0bb01060ddec (id: 2)
+qdhcp-27dce2b0-f964-4247-adbc-670830aaa7db (id: 1)
+qdhcp-d51943ef-8061-4bdb-b684-8a7d2b7ce73b (id: 0)
+
+
+root@book-controller01:~# openstack network list
++--------------------------------------+--------------------+--------------------------------------+
+| ID                                   | Name               | Subnets                              |
++--------------------------------------+--------------------+--------------------------------------+
+| 27dce2b0-f964-4247-adbc-670830aaa7db | MyOtherUserNetwork | 6cfffc42-0366-447f-89ef-5bad385322ff |
+| 449cd329-240d-4474-bf6b-e31cf916a6fd | MyUserNetwork      |                                      |
+| 9cd264e9-d3b7-415e-bf49-5efe3463c18d | MyVLANNetwork2     |                                      |
+| b2ca3d41-c79c-416a-8e86-0bb01060ddec | MyVLANNetwork      | 9cb3e07c-cc91-44c4-b8be-082043720db1 |
+| d51943ef-8061-4bdb-b684-8a7d2b7ce73b | MyFlatNetwork      | 63eaa79b-8129-4fc4-a783-cc7ba917d462 |
++--------------------------------------+--------------------+--------------------------------------+
+
+root@book-controller01:~# ip netns exec qdhcp-b2ca3d41-c79c-416a-8e86-0bb01060ddec ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: ns-5a962785-9b@if13: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether fa:16:3e:85:64:17 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 192.168.206.2/24 brd 192.168.206.255 scope global ns-5a962785-9b
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe85:6417/64 scope link
+       valid_lft forever preferred_lft forever
+	   
+	   
+	   
+	   
+root@controller01:~# openstack subnet pool create \
+> --pool-prefix 172.31.0.0/16 MySubnetPool
++-------------------+--------------------------------------+
+| Field             | Value                                |
++-------------------+--------------------------------------+
+| address_scope_id  | None                                 |
+| created_at        | 2018-03-07T13:18:22Z                 |
+| default_prefixlen | 8                                    |
+| default_quota     | None                                 |
+| description       |                                      |
+| id                | e49703d8-27f4-4a16-9bf4-91a6cf00fff3 |
+| ip_version        | 4                                    |
+| is_default        | False                                |
+| max_prefixlen     | 32                                   |
+| min_prefixlen     | 8                                    |
+| name              | MySubnetPool                         |
+| prefixes          | 172.31.0.0/16                        |
+| project_id        | 9233b6b4f6a54386af63c0a7b8f043c2     |
+| revision_number   | 0                                    |
+| shared            | False                                |
+| tags              |                                      |
+| updated_at        | 2018-03-07T13:18:22Z                 |
++-------------------+--------------------------------------+
+
+root@controller01:~# openstack subnet create \
+> --subnet-pool MySubnetPool \
+> --prefix-length 28 \
+> --network MyVLANNetwork2 \
+> MySubnetFromPool	   
+	   
++-------------------------+--------------------------------------+
+| Field                   | Value                                |
++-------------------------+--------------------------------------+
+| allocation_pools        | 172.31.0.50-172.31.0.62              |
+| cidr                    | 172.31.0.48/28                       |
+| created_at              | 2018-03-07T15:20:03Z                 |
+| description             |                                      |
+| dns_nameservers         |                                      |
+| enable_dhcp             | True                                 |
+| gateway_ip              | 172.31.0.49                          |
+| host_routes             |                                      |
+| id                      | da20b588-f663-4c8a-a32a-07fd8f336b5a |
+| ip_version              | 4                                    |
+| ipv6_address_mode       | None                                 |
+| ipv6_ra_mode            | None                                 |
+| name                    | MySubnetFromPool                     |
+| network_id              | e01ca743-607c-4a94-9176-b572a46fba84 |
+| prefixlen               | 28                                   |
+| project_id              | 9233b6b4f6a54386af63c0a7b8f043c2     |
+| revision_number         | 0                                    |
+| segment_id              | None                                 |
+| service_types           |                                      |
+| subnetpool_id           | e49703d8-27f4-4a16-9bf4-91a6cf00fff3 |
+| tags                    |                                      |
+| updated_at              | 2018-03-07T15:20:03Z                 |
+| use_default_subnet_pool | None                                 |
++-------------------------+--------------------------------------+
+
+root@controller01:~# openstack subnet create \
+> --use-default-subnet-pool \
+> --network MyVLANNetwork2 \
+> MySubnetFromDefaultPool
+	   
++-------------------------+--------------------------------------+
+| Field                   | Value                                |
++-------------------------+--------------------------------------+
+| allocation_pools        | 172.31.0.66-172.31.0.78              |
+| cidr                    | 172.31.0.64/28                       |
+| created_at              | 2018-03-07T15:46:41Z                 |
+| description             |                                      |
+| dns_nameservers         |                                      |
+| enable_dhcp             | True                                 |
+| gateway_ip              | 172.31.0.65                          |
+| host_routes             |                                      |
+| id                      | 918d11df-aad8-4234-9f7f-1e927a6b9238 |
+| ip_version              | 4                                    |
+| ipv6_address_mode       | None                                 |
+| ipv6_ra_mode            | None                                 |
+| name                    | MySubnetFromDefaultPool              |
+| network_id              | e01ca743-607c-4a94-9176-b572a46fba84 |
+| prefixlen               | None                                 |
+| project_id              | 9233b6b4f6a54386af63c0a7b8f043c2     |
+| revision_number         | 0                                    |
+| segment_id              | None                                 |
+| service_types           |                                      |
+| subnetpool_id           | e49703d8-27f4-4a16-9bf4-91a6cf00fff3 |
+| tags                    |                                      |
+| updated_at              | 2018-03-07T15:46:41Z                 |
+| use_default_subnet_pool | True                                 |
++-------------------------+--------------------------------------+	   
+	   
+	   

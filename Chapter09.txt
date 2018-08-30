@@ -1,0 +1,39 @@
+
+
+openstack project create --description "Project A RBAC Demo" ProjectA
+openstack project create --description "Project B RBAC Demo" ProjectB
+openstack project create --description "Project C RBAC Demo" ProjectC
+
+
+openstack project create --description "Project A RBAC Demo" ProjectA
+
+openstack project create --description "Project B RBAC Demo" ProjectB
+
+openstack project create --description "Project C RBAC Demo" ProjectC
+
+
+openstack role create rbacdemo
+openstack user create UserA --password secrete
+openstack role add --project ProjectA --user UserA rbacdemo
+openstack user create UserB --password secrete
+openstack role add --project ProjectB --user UserB rbacdemo
+openstack user create UserC --password secrete
+openstack role add --project ProjectC --user UserC rbacdemo
+
+openstack role create rbacdemo
+
+openstack user create UserA --password secrete
+
+openstack role add --project ProjectA --user UserA rbacdemo
+openstack user create UserB --password secrete
+
+openstack role add --project ProjectB --user UserB rbacdemo
+openstack user create UserC --password secrete
+
+openstack role add --project ProjectC --user UserC rbacdemo
+
+
+source ~/adminrc
+openstack network create MySemiSharedNetwork
+openstack subnet create --subnet-range 192.168.99.0/24 --network MySemiSharedNetwork MySemiSharedSubnet
+

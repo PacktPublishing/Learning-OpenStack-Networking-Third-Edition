@@ -1,0 +1,417 @@
+--- install
+
+# apt install neutron-l3-agent
+
+--- /etc/neutron/l3_agent.ini
+
+[DEFAULT] 
+interface_driver = openvswitch
+
+--- /etc/neutron/plugins/ml2/openvswitch_agent.ini 
+
+[agent]
+enable_distributed_routing = True
+l2_population = True
+
+- snat node
+
+[DEFAULT] 
+agent_mode = dvr_snat
+handle_internal_only_routers = false
+
+- compute nodes
+
+[DEFAULT] 
+agent_mode= dvr
+handle_internal_only_routers = false
+
+--- restart neutron-server
+
+# systemctl restart neutron-server
+
+--- restart agents and verify
+
+# systemctl restart neutron-l3-agent neutron-openvswitch-agent
+# openstack network agent list --agent-type="l3"
+
+--- examples (the output in your environment may vary)
+
+root@controller01:~# openstack network agent list --agent-type="l3"
++--------------------------------------+------------+--------------+-------------------+-------+-------+------------------+
+| ID                                   | Agent Type | Host         | Availability Zone | Alive | State | Binary           |
++--------------------------------------+------------+--------------+-------------------+-------+-------+------------------+
+| ee380688-0ea7-4e54-9889-c44ddd933678 | L3 agent   | compute01    | nova              | :-)   | UP    | neutron-l3-agent |
+| f9f8e9a3-4332-4693-a652-40837ffdbd51 | L3 agent   | compute02    | nova              | :-)   | UP    | neutron-l3-agent |
+| 7cdeb762-ab03-41a3-b924-9e64dde50621 | L3 agent   | compute03    | nova              | :-)   | UP    | neutron-l3-agent |
+| 9c75984a-2cfa-4db6-afc6-b7e1e4901bbd | L3 agent   | controller01 | nova              | :-)   | UP    | neutron-l3-agent |
+| 63214965-cd41-4aa1-a98f-a3e202929106 | L3 agent   | snat01       | nova              | :-)   | UP    | neutron-l3-agent |
++--------------------------------------+------------+--------------+-------------------+-------+-------+------------------+
+
+
+root@controller01:~# openstack router list
++--------------------------------------+--------------------------+--------+-------+-------------+-------+----------------------------------+
+| ID                                   | Name                     | Status | State | Distributed | HA    | Project                          |
++--------------------------------------+--------------------------+--------+-------+-------------+-------+----------------------------------+
+| 9822b80c-7548-43f7-8a03-70c5baf6c9c0 | MyDistributedRouter      | ACTIVE | UP    | True        | False | 9233b6b4f6a54386af63c0a7b8f043c2 |
++--------------------------------------+--------------------------+--------+-------+-------------+-------+----------------------------------+
+
+
+root@controller01:~# openstack router list
++--------------------------------------+-------------------------+--------+-------+-------------+-------+----------------------------------+
+| ID                                   | Name                    | Status | State | Distributed | HA    | Project                          |
++--------------------------------------+-------------------------+--------+-------+-------------+-------+----------------------------------+
+| 44e8f6a5-c9c6-44c1-854c-c503efccc1b2 | MyHighlyAvailableRouter | ACTIVE | UP    | False       | True  | 9233b6b4f6a54386af63c0a7b8f043c2 |
+| 9822b80c-7548-43f7-8a03-70c5baf6c9c0 | MyDistributedRouter     | ACTIVE | UP    | True        | False | 9233b6b4f6a54386af63c0a7b8f043c2 |
+| 9ef2eeed-4a55-4f64-b8be-4b07a43ec373 | MyLegacyRouter          | ACTIVE | UP    | False       | False | 9233b6b4f6a54386af63c0a7b8f043c2 |
++--------------------------------------+-------------------------+--------+-------+-------------+-------+----------------------------------+
+
+---
+
+root@controller01:~# openstack router list
++--------------------------------------+---------------------+--------+-------+-------------+-------+----------------------------------+
+| ID                                   | Name                | Status | State | Distributed | HA    | Project                          |
++--------------------------------------+---------------------+--------+-------+-------------+-------+----------------------------------+
+| 9822b80c-7548-43f7-8a03-70c5baf6c9c0 | MyDistributedRouter | ACTIVE | UP    | True        | False | 9233b6b4f6a54386af63c0a7b8f043c2 |
++--------------------------------------+---------------------+--------+-------+-------------+-------+----------------------------------+
+
+
+root@compute02:~# ip netns exec qrouter-9822b80c-7548-43f7-8a03-70c5baf6c9c0 ip a
+...
+30: qr-841d9818-bf: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:73:ce:50 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.150.1/24 brd 192.168.150.255 scope global qr-841d9818-bf
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe73:ce50/64 scope link
+       valid_lft forever preferred_lft forever
+31: qr-d2ce8f82-d8: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:56:50:10 brd ff:ff:ff:ff:ff:ff
+    inet 172.16.0.1/24 brd 172.16.0.255 scope global qr-d2ce8f82-d8
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe56:5010/64 scope link
+       valid_lft forever preferred_lft forever
+	   
+root@compute03:~# ip netns exec qrouter-9822b80c-7548-43f7-8a03-70c5baf6c9c0 ip a
+...
+18: qr-841d9818-bf: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:73:ce:50 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.150.1/24 brd 192.168.150.255 scope global qr-841d9818-bf
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe73:ce50/64 scope link 
+       valid_lft forever preferred_lft forever
+19: qr-d2ce8f82-d8: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:56:50:10 brd ff:ff:ff:ff:ff:ff
+    inet 172.16.0.1/24 brd 172.16.0.255 scope global qr-d2ce8f82-d8
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe56:5010/64 scope link 
+       valid_lft forever preferred_lft forever
+	   
+root@snat01:~# ip netns exec qrouter-9822b80c-7548-43f7-8a03-70c5baf6c9c0 ip a
+...
+17: qr-841d9818-bf: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:73:ce:50 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.150.1/24 brd 192.168.150.255 scope global qr-841d9818-bf
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe73:ce50/64 scope link
+       valid_lft forever preferred_lft forever
+19: qr-d2ce8f82-d8: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:56:50:10 brd ff:ff:ff:ff:ff:ff
+    inet 172.16.0.1/24 brd 172.16.0.255 scope global qr-d2ce8f82-d8
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe56:5010/64 scope link
+       valid_lft forever preferred_lft forever
+	   
+	   
+root@controller01:~# mysql -e 'use neutron; select * from dvr_host_macs;'
++-----------+-------------------+
+| host      | mac_address       |
++-----------+-------------------+
+| snat01    | FA-16-3F-75-10-80 |
+| compute03 | FA-16-3F-8B-A5-69 |
+| compute02 | FA-16-3F-C9-6D-0F |
++-----------+-------------------+
+
+root@compute02:~# ovs-ofctl dump-flows br-eth2
+ cookie=0x72528fb6fd5c40c6, duration=126.089s, table=0, n_packets=24, n_bytes=1536, priority=2,in_port="phy-br-eth2" actions=resubmit(,1)
+ cookie=0x72528fb6fd5c40c6, duration=126.236s, table=0, n_packets=64, n_bytes=9258, priority=0 actions=NORMAL
+ cookie=0x72528fb6fd5c40c6, duration=126.088s, table=0, n_packets=16453, n_bytes=2559187, priority=1 actions=resubmit(,3)
+ cookie=0x72528fb6fd5c40c6, duration=123.636s, table=1, n_packets=6, n_bytes=252, priority=3,arp,dl_vlan=2,arp_tpa=172.16.0.1 actions=drop
+ cookie=0x72528fb6fd5c40c6, duration=123.245s, table=1, n_packets=6, n_bytes=252, priority=3,arp,dl_vlan=1,arp_tpa=192.168.150.1 actions=drop
+ cookie=0x72528fb6fd5c40c6, duration=123.634s, table=1, n_packets=0, n_bytes=0, priority=2,dl_vlan=2,dl_dst=fa:16:3e:56:50:10 actions=drop
+ cookie=0x72528fb6fd5c40c6, duration=123.243s, table=1, n_packets=0, n_bytes=0, priority=2,dl_vlan=1,dl_dst=fa:16:3e:73:ce:50 actions=drop
+ cookie=0x72528fb6fd5c40c6, duration=123.632s, table=1, n_packets=2, n_bytes=260, priority=1,dl_vlan=2,dl_src=fa:16:3e:56:50:10 actions=mod_dl_src:fa:16:3f:c9:6d:0f,resubmit(,2)
+ cookie=0x72528fb6fd5c40c6, duration=123.241s, table=1, n_packets=2, n_bytes=260, priority=1,dl_vlan=1,dl_src=fa:16:3e:73:ce:50 actions=mod_dl_src:fa:16:3f:c9:6d:0f,resubmit(,2)
+ cookie=0x72528fb6fd5c40c6, duration=126.086s, table=1, n_packets=8, n_bytes=512, priority=0 actions=resubmit(,2)
+ cookie=0x72528fb6fd5c40c6, duration=123.905s, table=2, n_packets=2, n_bytes=260, priority=4,in_port="phy-br-eth2",dl_vlan=2 actions=mod_vlan_vid:42,NORMAL
+ cookie=0x72528fb6fd5c40c6, duration=123.624s, table=2, n_packets=2, n_bytes=260, priority=4,in_port="phy-br-eth2",dl_vlan=1 actions=mod_vlan_vid:41,NORMAL
+ cookie=0x72528fb6fd5c40c6, duration=123.228s, table=2, n_packets=8, n_bytes=512, priority=4,in_port="phy-br-eth2",dl_vlan=3 actions=mod_vlan_vid:30,NORMAL
+ cookie=0x72528fb6fd5c40c6, duration=126.085s, table=2, n_packets=0, n_bytes=0, priority=2,in_port="phy-br-eth2" actions=drop
+ cookie=0x72528fb6fd5c40c6, duration=126.058s, table=3, n_packets=4, n_bytes=536, priority=2,dl_src=fa:16:3f:75:10:80 actions=output:"phy-br-eth2"
+ cookie=0x72528fb6fd5c40c6, duration=126.051s, table=3, n_packets=4, n_bytes=456, priority=2,dl_src=fa:16:3f:8b:a5:69 actions=output:"phy-br-eth2"
+ cookie=0x72528fb6fd5c40c6, duration=126.083s, table=3, n_packets=16444, n_bytes=2558076, priority=1 actions=NORMAL
+ 
+root@compute02:~# ovs-ofctl dump-flows br-eth2
+...
+ table=1, n_packets=2, n_bytes=260, priority=1,dl_vlan=2,dl_src=fa:16:3e:56:50:10 actions=mod_dl_src:fa:16:3f:c9:6d:0f,resubmit(,2)
+ table=1, n_packets=2, n_bytes=260, priority=1,dl_vlan=1,dl_src=fa:16:3e:73:ce:50 actions=mod_dl_src:fa:16:3f:c9:6d:0f,resubmit(,2)
+ table=1, n_packets=8, n_bytes=512, priority=0 actions=resubmit(,2)
+ table=2, n_packets=2, n_bytes=260, priority=4,in_port="phy-br-eth2",dl_vlan=2 actions=mod_vlan_vid:42,NORMAL
+ table=2, n_packets=2, n_bytes=260, priority=4,in_port="phy-br-eth2",dl_vlan=1 actions=mod_vlan_vid:41,NORMAL
+ table=2, n_packets=8, n_bytes=512, priority=4,in_port="phy-br-eth2",dl_vlan=3 actions=mod_vlan_vid:30,NORMAL
+ table=2, n_packets=0, n_bytes=0, priority=2,in_port="phy-br-eth2" actions=drop
+ table=3, n_packets=4, n_bytes=536, priority=2,dl_src=fa:16:3f:75:10:80 actions=output:"phy-br-eth2"
+ table=3, n_packets=4, n_bytes=456, priority=2,dl_src=fa:16:3f:8b:a5:69 actions=output:"phy-br-eth2"
+ table=3, n_packets=16444, n_bytes=2558076, priority=1 actions=NORMAL
+... 
+ 
+
+
+
+root@compute02:~# ovs-ofctl dump-flows br-int
+ cookie=0x305a2db167d8a, duration=422.709s, table=0, n_packets=0, n_bytes=0, priority=10,icmp6,in_port="qvo1898e499-08",icmp_type=136 actions=resubmit(,24)
+ cookie=0x305a2db167d8a, duration=422.704s, table=0, n_packets=0, n_bytes=0, priority=10,arp,in_port="qvo1898e499-08" actions=resubmit(,24)
+ cookie=0x305a2db167d8a, duration=429.417s, table=0, n_packets=1411, n_bytes=115383, priority=2,in_port="int-br-eth2" actions=drop
+ cookie=0x305a2db167d8a, duration=422.714s, table=0, n_packets=0, n_bytes=0, priority=9,in_port="qvo1898e499-08" actions=resubmit(,25)
+ cookie=0x305a2db167d8a, duration=429.383s, table=0, n_packets=4, n_bytes=536, priority=4,in_port="int-br-eth2",dl_src=fa:16:3f:75:10:80 actions=resubmit(,2)
+ cookie=0x305a2db167d8a, duration=429.379s, table=0, n_packets=0, n_bytes=0, priority=2,in_port="patch-tun",dl_src=fa:16:3f:75:10:80 actions=resubmit(,1)
+ cookie=0x305a2db167d8a, duration=429.375s, table=0, n_packets=4, n_bytes=456, priority=4,in_port="int-br-eth2",dl_src=fa:16:3f:8b:a5:69 actions=resubmit(,2)
+ cookie=0x305a2db167d8a, duration=429.371s, table=0, n_packets=0, n_bytes=0, priority=2,in_port="patch-tun",dl_src=fa:16:3f:8b:a5:69 actions=resubmit(,1)
+ cookie=0x305a2db167d8a, duration=427.225s, table=0, n_packets=16, n_bytes=1304, priority=3,in_port="int-br-eth2",dl_vlan=42 actions=mod_vlan_vid:2,resubmit(,60)
+ cookie=0x305a2db167d8a, duration=426.944s, table=0, n_packets=16, n_bytes=1304, priority=3,in_port="int-br-eth2",dl_vlan=41 actions=mod_vlan_vid:1,resubmit(,60)
+ cookie=0x305a2db167d8a, duration=426.548s, table=0, n_packets=69, n_bytes=6186, priority=3,in_port="int-br-eth2",dl_vlan=30 actions=mod_vlan_vid:3,resubmit(,60)
+ cookie=0x305a2db167d8a, duration=429.833s, table=0, n_packets=24, n_bytes=1536, priority=0 actions=resubmit(,60)
+ cookie=0x305a2db167d8a, duration=429.420s, table=1, n_packets=0, n_bytes=0, priority=1 actions=drop
+ cookie=0x305a2db167d8a, duration=426.558s, table=2, n_packets=0, n_bytes=0, priority=4,dl_vlan=41,dl_dst=fa:16:3e:3b:c9:4b actions=mod_dl_src:fa:16:3e:73:ce:50,resubmit(,60)
+ cookie=0x305a2db167d8a, duration=429.419s, table=2, n_packets=8, n_bytes=992, priority=1 actions=drop
+ cookie=0x305a2db167d8a, duration=429.421s, table=23, n_packets=0, n_bytes=0, priority=0 actions=drop
+ cookie=0x305a2db167d8a, duration=422.711s, table=24, n_packets=0, n_bytes=0, priority=2,icmp6,in_port="qvo1898e499-08",icmp_type=136,nd_target=fe80::f816:3eff:fe3b:c94b actions=resubmit(,60)
+ cookie=0x305a2db167d8a, duration=422.707s, table=24, n_packets=0, n_bytes=0, priority=2,arp,in_port="qvo1898e499-08",arp_spa=192.168.150.13 actions=resubmit(,25)
+ cookie=0x305a2db167d8a, duration=429.830s, table=24, n_packets=0, n_bytes=0, priority=0 actions=drop
+ cookie=0x305a2db167d8a, duration=422.718s, table=25, n_packets=0, n_bytes=0, priority=2,in_port="qvo1898e499-08",dl_src=fa:16:3e:3b:c9:4b actions=resubmit(,60)
+ cookie=0x305a2db167d8a, duration=426.556s, table=60, n_packets=0, n_bytes=0, priority=4,dl_vlan=41,dl_dst=fa:16:3e:3b:c9:4b actions=strip_vlan,output:"qvo1898e499-08"
+ cookie=0x305a2db167d8a, duration=429.831s, table=60, n_packets=125, n_bytes=10330, priority=3 actions=NORMAL
+ 
+ 
+root@compute02:~# ovs-ofctl dump-flows br-int
+...
+ table=0, n_packets=4, n_bytes=536, priority=4,in_port="int-br-eth2",dl_src=fa:16:3f:75:10:80 actions=resubmit(,2)
+ table=0, n_packets=0, n_bytes=0, priority=2,in_port="patch-tun",dl_src=fa:16:3f:75:10:80 actions=resubmit(,1)
+ table=0, n_packets=4, n_bytes=456, priority=4,in_port="int-br-eth2",dl_src=fa:16:3f:8b:a5:69 actions=resubmit(,2)
+ table=0, n_packets=0, n_bytes=0, priority=2,in_port="patch-tun",dl_src=fa:16:3f:8b:a5:69 actions=resubmit(,1)
+ table=0, n_packets=16, n_bytes=1304, priority=3,in_port="int-br-eth2",dl_vlan=42 actions=mod_vlan_vid:2,resubmit(,60)
+ table=0, n_packets=16, n_bytes=1304, priority=3,in_port="int-br-eth2",dl_vlan=41 actions=mod_vlan_vid:1,resubmit(,60)
+ table=0, n_packets=69, n_bytes=6186, priority=3,in_port="int-br-eth2",dl_vlan=30 actions=mod_vlan_vid:3,resubmit(,60)
+ table=0, n_packets=24, n_bytes=1536, priority=0 actions=resubmit(,60)
+ table=1, n_packets=0, n_bytes=0, priority=1 actions=drop
+ table=2, n_packets=0, n_bytes=0, priority=4,dl_vlan=41,dl_dst=fa:16:3e:3b:c9:4b actions=mod_dl_src:fa:16:3e:73:ce:50,resubmit(,60)
+ table=2, n_packets=8, n_bytes=992, priority=1 actions=drop
+...
+
+
+root@controller01:~# openstack network list
++--------------------------------------+-------------+--------------------------------------+
+| ID                                   | Name        | Subnets                              |
++--------------------------------------+-------------+--------------------------------------+
+| 758070f9-ecaf-4d2a-aa49-e119ce7943f6 | GATEWAY_NET | 0af5a767-fce0-4c4d-9df2-1aedbd259405 |
+| db527151-2088-491b-80f3-b06b10715527 | GREEN_NET   | 4a2b4fcc-07b3-45ae-a5e2-dfec3a8ec2e6 |
++--------------------------------------+-------------+--------------------------------------+
+
+
+root@controller01:~# openstack router create --distributed MyOtherDistributedRouter
++-------------------------+--------------------------------------+
+| Field                   | Value                                |
++-------------------------+--------------------------------------+
+| admin_state_up          | UP                                   |
+| availability_zone_hints |                                      |
+| availability_zones      |                                      |
+| created_at              | 2018-05-07T14:32:51Z                 |
+| description             |                                      |
+| distributed             | True                                 |
+| external_gateway_info   | None                                 |
+| flavor_id               | None                                 |
+| ha                      | False                                |
+| id                      | d932cc76-4227-4c87-a24d-9736826e525d |
+| name                    | MyOtherDistributedRouter             |
+| project_id              | 9233b6b4f6a54386af63c0a7b8f043c2     |
+| revision_number         | None                                 |
+| routes                  |                                      |
+| status                  | ACTIVE                               |
+| tags                    |                                      |
+| updated_at              | 2018-05-07T14:32:51Z                 |
++-------------------------+--------------------------------------+
+
+
+root@controller01:~# openstack router set --external GATEWAY_NET MyOtherDistributedRouter
+root@controller01:~# 
+root@controller01:~# openstack network agent list --router=MyOtherDistributedRouter
++--------------------------------------+------------+--------+-------------------+-------+-------+------------------+
+| ID                                   | Agent Type | Host   | Availability Zone | Alive | State | Binary           |
++--------------------------------------+------------+--------+-------------------+-------+-------+------------------+
+| 63214965-cd41-4aa1-a98f-a3e202929106 | L3 agent   | snat01 | nova              | :-)   | UP    | neutron-l3-agent |
++--------------------------------------+------------+--------+-------------------+-------+-------+------------------+
+
+root@controller01:~# openstack router add subnet MyOtherDistributedRouter GREEN_SUBNET
+root@controller01:~# 
+root@controller01:~# openstack server create --flavor tiny --image cirros-0.4.0 --nic net-id=GREEN_NET --availability-zone nova:compute03 GREEN_VM
+...
+
+
+root@snat01:~# ip netns
+snat-d932cc76-4227-4c87-a24d-9736826e525d
+qrouter-d932cc76-4227-4c87-a24d-9736826e525d
+...
+
+root@snat01:~# ip netns exec qrouter-d932cc76-4227-4c87-a24d-9736826e525d ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: rfp-d932cc76-4@if4: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether 8a:f2:78:41:ed:5b brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 169.254.106.114/31 scope global rfp-d932cc76-4
+       valid_lft forever preferred_lft forever
+    inet6 fe80::88f2:78ff:fe41:ed5b/64 scope link
+       valid_lft forever preferred_lft forever
+22: qr-13222cba-eb: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:be:8c:e9 brd ff:ff:ff:ff:ff:ff
+    inet 172.24.100.1/24 brd 172.24.100.255 scope global qr-13222cba-eb
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:febe:8ce9/64 scope link
+       valid_lft forever preferred_lft forever
+	   
+	   
+root@snat01:~# ip netns exec snat-d932cc76-4227-4c87-a24d-9736826e525d ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+21: qg-b752de9c-a3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:be:e2:7d brd ff:ff:ff:ff:ff:ff
+    inet 10.30.0.104/24 brd 10.30.0.255 scope global qg-b752de9c-a3
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:febe:e27d/64 scope link
+       valid_lft forever preferred_lft forever
+23: sg-ea07f243-be: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:04:a6:08 brd ff:ff:ff:ff:ff:ff
+    inet 172.24.100.11/24 brd 172.24.100.255 scope global sg-ea07f243-be
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe04:a608/64 scope link
+       valid_lft forever preferred_lft forever
+	   
+	   
+root@compute03:~# ip netns exec qrouter-d932cc76-4227-4c87-a24d-9736826e525d ip route
+169.254.106.114/31 dev rfp-d932cc76-4  proto kernel  scope link  src 169.254.106.114
+172.24.100.0/24 dev qr-13222cba-eb  proto kernel  scope link  src 172.24.100.1
+
+
+root@compute03:~# ip netns exec qrouter-d932cc76-4227-4c87-a24d-9736826e525d ip rule
+0:	from all lookup local
+32766:	from all lookup main
+32767:	from all lookup default
+2887279617:	from 172.24.100.1/24 lookup 2887279617
+
+root@compute03:~# ip netns exec qrouter-d932cc76-4227-4c87-a24d-9736826e525d ip route show table 2887279617
+default via 172.24.100.11 dev qr-13222cba-eb
+
+
+root@compute03:~# ip netns
+...
+qrouter-d932cc76-4227-4c87-a24d-9736826e525d
+fip-758070f9-ecaf-4d2a-aa49-e119ce7943f6
+
+
+root@compute03:~# ip netns exec qrouter-d932cc76-4227-4c87-a24d-9736826e525d ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: rfp-d932cc76-4@if5: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether ce:00:bb:db:0b:a1 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 169.254.106.114/31 scope global rfp-d932cc76-4
+       valid_lft forever preferred_lft forever
+    inet6 fe80::cc00:bbff:fedb:ba1/64 scope link
+       valid_lft forever preferred_lft forever
+21: qr-13222cba-eb: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:be:8c:e9 brd ff:ff:ff:ff:ff:ff
+    inet 172.24.100.1/24 brd 172.24.100.255 scope global qr-13222cba-eb
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:febe:8ce9/64 scope link
+       valid_lft forever preferred_lft forever
+	   
+	   
+root@compute03:~# ip netns exec fip-758070f9-ecaf-4d2a-aa49-e119ce7943f6 ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+4: fpr-9822b80c-7@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether e6:62:fd:b7:96:2a brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 169.254.109.47/31 scope global fpr-9822b80c-7
+       valid_lft forever preferred_lft forever
+    inet6 fe80::e462:fdff:feb7:962a/64 scope link
+       valid_lft forever preferred_lft forever
+5: fpr-d932cc76-4@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether a6:62:ea:86:6c:1d brd ff:ff:ff:ff:ff:ff link-netnsid 1
+    inet 169.254.106.115/31 scope global fpr-d932cc76-4
+       valid_lft forever preferred_lft forever
+    inet6 fe80::a462:eaff:fe86:6c1d/64 scope link
+       valid_lft forever preferred_lft forever
+14: fg-9f3f75e4-cd: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:19:fa:9f brd ff:ff:ff:ff:ff:ff
+    inet 10.30.0.113/24 brd 10.30.0.255 scope global fg-9f3f75e4-cd
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe19:fa9f/64 scope link
+       valid_lft forever preferred_lft forever
+	   
+	   
+root@compute03:~# ip netns exec qrouter-d932cc76-4227-4c87-a24d-9736826e525d ip rule
+0:	from all lookup local
+32766:	from all lookup main
+32767:	from all lookup default
+57481:	from 172.24.100.6 lookup 16
+2887279617:	from 172.24.100.1/24 lookup 2887279617
+
+root@compute03:~# ip netns exec qrouter-d932cc76-4227-4c87-a24d-9736826e525d ip route show table 16
+default via 169.254.106.115 dev rfp-d932cc76-4
+
+
+root@compute03:~# ip netns exec fip-758070f9-ecaf-4d2a-aa49-e119ce7943f6 ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+4: fpr-9822b80c-7@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether e6:62:fd:b7:96:2a brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 169.254.109.47/31 scope global fpr-9822b80c-7
+       valid_lft forever preferred_lft forever
+    inet6 fe80::e462:fdff:feb7:962a/64 scope link
+       valid_lft forever preferred_lft forever
+5: fpr-d932cc76-4@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether a6:62:ea:86:6c:1d brd ff:ff:ff:ff:ff:ff link-netnsid 1
+    inet 169.254.106.115/31 scope global fpr-d932cc76-4
+       valid_lft forever preferred_lft forever
+    inet6 fe80::a462:eaff:fe86:6c1d/64 scope link
+       valid_lft forever preferred_lft forever
+14: fg-9f3f75e4-cd: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/ether fa:16:3e:19:fa:9f brd ff:ff:ff:ff:ff:ff
+    inet 10.30.0.113/24 brd 10.30.0.255 scope global fg-9f3f75e4-cd
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe19:fa9f/64 scope link
+       valid_lft forever preferred_lft forever
+	   
+	   
+root@compute03:~# ip netns exec fip-758070f9-ecaf-4d2a-aa49-e119ce7943f6 ip route
+10.30.0.0/24 dev fg-9f3f75e4-cd  proto kernel  scope link  src 10.30.0.113
+10.30.0.107 via 169.254.106.114 dev fpr-d932cc76-4
+169.254.106.114/31 dev fpr-d932cc76-4  proto kernel  scope link  src 169.254.106.115
+169.254.109.46/31 dev fpr-9822b80c-7  proto kernel  scope link  src 169.254.109.47
+

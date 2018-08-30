@@ -1,0 +1,41 @@
+--- /etc/neutron/neutron.conf
+
+[DEFAULT]
+service_plugins = router,neutron_lbaas.services.loadbalancer.plugin.LoadBalancerPluginv2,trunk,neutron_dynamic_routing.services.bgp.bgp_plugin.BgpPlugin
+
+--- Install agent
+
+# apt install neutron-bgp-dragent
+
+--- /etc/neutron/bgp_dragent.ini
+
+[bgp]
+bgp_speaker_driver = neutron_dynamic_routing.services.bgp.agent.driver.ryu.driver.RyuBgpDriver
+bgp_router_id = 10.10.0.100
+
+--- Restart services
+
+# systemctl restart neutron-server neutron-bgp-dragent
+
+---------
+
+--- AZs ---
+
+--- /etc/neutron/l3_agent.ini
+
+[agent]
+availability_zone = AZ1
+
+--- Restart agent
+
+# systemctl restart neutron-l3-agent
+
+--- /etc/neutron/dhcp_agent.ini
+
+[agent]
+availability_zone = AZ1
+
+--- Restart agent
+
+# systemctl restart neutron-dhcp-agent
+

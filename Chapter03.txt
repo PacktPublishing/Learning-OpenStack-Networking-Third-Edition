@@ -1,0 +1,135 @@
+--- Database
+
+CREATE DATABASE neutron;
+GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'localhost' IDENTIFIED BY 'neutron';
+GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'%' IDENTIFIED BY 'neutron';
+quit;
+
+
+--- Neutron users,roles, etc
+
+# source ~/adminrc
+# openstack user create --domain Default --password=neutron neutron
+# openstack role add --project service --user neutron admin
+
+# openstack service create --name neutron \
+  --description "OpenStack Networking" network
+
+# openstack endpoint create --region RegionOne \
+  network public http://controller01:9696
+# openstack endpoint create --region RegionOne \
+  network internal http://controller01:9696
+# openstack endpoint create --region RegionOne \
+  network admin http://controller01:9696
+
+
+--- Install packages on controller
+
+# apt install neutron-server neutron-dhcp-agent \
+neutron-metadata-agent neutron-plugin-ml2 \
+python-neutronclient
+
+
+--- Install packages on compute
+
+# apt install neutron-plugin-ml2
+
+--- /etc/neutron/neutron.conf 
+
+[database]
+connection = mysql+pymysql://neutron:neutron@controller01/neutron
+
+[DEFAULT]
+auth_strategy = keystone
+transport_url = rabbit://openstack:rabbit@controller01
+core_plugin = ml2
+dns_domain = learningneutron.com
+
+[keystone_authtoken]
+auth_uri = http://controller01:5000
+auth_url = http://controller01:35357
+memcached_servers = controller01:11211
+auth_type= password
+project_domain_name = default
+user_domain_name = default
+project_name = service
+username = neutron
+password = neutron
+
+[neutron] 
+url = http://controller01:9696
+auth_url = http://controller01:35357
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+region_name = RegionOne
+project_name = service
+username = neutron
+password = neutron
+
+
+-- Controller only
+
+[nova]
+auth_url = http://controller01:35357
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+region_name = RegionOne
+project_name = service
+username = nova
+password = nova
+
+--- Update DB
+
+# su -s /bin/sh -c "neutron-db-manage \
+--config-file /etc/neutron/neutron.conf \
+--config-file /etc/neutron/plugins/ml2/ml2_conf.ini \
+upgrade head" neutron
+
+
+--- Restart controller services:
+
+# systemctl restart nova-api nova-scheduler nova-conductor
+# systemctl restart neutron-server
+
+--- Restart compute services
+
+# systemctl restart nova-compute
+
+--- /etc/neutron/dhcp_agent.ini 
+
+[DEFAULT]
+enable_isolated_metadata = True
+
+--- Restart and verify
+
+# systemctl restart neutron-dhcp-agent
+# systemctl status neutron-dhcp-agent
+
+--- /etc/nova/nova.conf
+
+[neutron]
+service_metadata_proxy = true
+metadata_proxy_shared_secret = MetadataSecret123
+
+---/etc/neutron/metadata_agent.ini
+
+[DEFAULT]
+nova_metadata_host = controller01
+metadata_proxy_shared_secret = MetadataSecret123
+
+--- Restart
+
+# systemctl restart nova-api neutron-metadata-agent
+# systemctl status neutron-metadata-agent
+
+
+--- Other methods
+
+$ pip install openstacksdk
+
+$ curl -v -X GET -H 'X-Auth-Token: <token id>' \
+http://controller01:9696/v2.0/networks
+
+

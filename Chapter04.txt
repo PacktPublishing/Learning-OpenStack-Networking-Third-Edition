@@ -1,0 +1,85 @@
+--- MTU changes (optional)
+
+-- Edit /etc/neutron/dhcp_agent.ini 
+
+[DEFAULT]
+dnsmasq_config_file = /etc/neutron/dnsmasq-neutron.conf
+
+-- Edit /etc/neutron/dnsmasq-neutron.conf 
+
+dhcp-option-force=26,1450
+
+--- Restart
+
+# systemctl restart neutron-dhcp-agent
+
+--- /etc/network/interfaces 
+
+auto eth1
+iface eth1 inet static
+  address 10.20.0.X/24
+
+auto eth2
+iface eth2 inet manual
+
+--- Set interface up
+
+# ip link set dev eth2 up
+# ip link set dev eth1 up
+
+---/etc/neutron/plugins/ml2/ml2_conf.ini 
+
+[ml2]	
+type_drivers = local,flat,vlan,vxlan
+mechanism_drivers = linuxbridge,l2population
+tenant_network_types = vlan,vxlan
+
+[ml2_type_vlan]
+network_vlan_ranges = physnet1:40:43
+
+[ml2_type_vxlan]
+vni_ranges = 1:1000
+
+--- Install agent
+
+# apt install neutron-plugin-linuxbridge-agent
+
+---/etc/neutron/plugins/ml2/ml2_conf.ini 
+
+[linux_bridge]
+physical_interface_mappings = physnet1:eth2
+
+[vxlan]
+enable_vxlan = true
+l2_population = true
+arp_responder = true
+local_ip = 10.20.0.X (IP will vary)
+
+securitygroup]
+firewall_driver = iptables
+
+--- /etc/neutron/dhcp_agent.ini 
+
+[DEFAULT]
+interface_driver = linuxbridge
+
+--- Restart
+
+# systemctl restart neutron-linuxbridge-agent
+# systemctl restart neutron-server neutron-dhcp-agent
+
+---Examples
+
+root@controller01:~# openstack network agent list
++--------------------------------------+--------------------+--------------+-------------------+-------+-------+---------------------------+
+| ID                                   | Agent Type         | Host         | Availability Zone | Alive | State | Binary                    |
++--------------------------------------+--------------------+--------------+-------------------+-------+-------+---------------------------+
+| 75c095d1-df2a-491e-bd87-9b8b9ba4f9d4 | DHCP agent         | controller01 | nova              | :-)   | UP    | neutron-dhcp-agent        |
+| 85e49a4d-2a86-40e2-bb8c-03b5b129c0fc | Open vSwitch agent | compute02    | None              | :-)   | UP    | neutron-openvswitch-agent |
+| b0a0156d-1199-4324-8bff-c6c5f7eea1f2 | Linux bridge agent | compute01    | None              | :-)   | UP    | neutron-linuxbridge-agent |
+| bf8b2e8c-4633-4b8d-939a-06663aa88708 | Metadata agent     | controller01 | None              | :-)   | UP    | neutron-metadata-agent    |
+| dc2ba98c-7304-411f-9dc7-15956177f7c3 | Linux bridge agent | controller01 | None              | :-)   | UP    | neutron-linuxbridge-agent |
++--------------------------------------+--------------------+--------------+-------------------+-------+-------+---------------------------+
+
+
+

@@ -1,0 +1,71 @@
+--- /etc/network/interfaces 
+
+auto eth1
+iface eth1 inet static
+  address 10.20.0.X/24
+
+auto eth2
+iface eth2 inet manual
+
+--- Set interface up
+
+# ip link set dev eth2 up
+# ip link set dev eth1 up
+
+
+---/etc/neutron/plugins/ml2/ml2_conf.ini
+
+[ml2]
+mechanism_drivers = linuxbridge,l2population,openvswitch
+
+[ml2_type_vlan]
+network_vlan_ranges = physnet1:40:43
+
+[ml2_type_vxlan]
+vni_ranges = 1:1000
+
+[securitygroup]
+firewall_driver = iptables_hybrid
+
+
+--- Install on c2,c3,snat01
+
+# apt install neutron-plugin-openvswitch-agent
+
+---/etc/neutron/plugins/ml2/openvswitch_agent.ini
+
+[agent]
+tunnel_types = vxlan
+l2_population = true
+arp_responder = true
+vxlan_udp_port = 8472
+
+[vxlan]
+local_ip = 10.20.0.X
+
+[ovs]	
+bridge_mappings = physnet1:br-eth2
+
+--- Configure bridge
+
+# ovs-vsctl add-br br-eth2
+# ovs-vsctl add-port br-eth2 eth2
+
+---Restart services
+
+# systemctl restart neutron-openvswitch-agent
+# systemctl restart neutron-server
+
+root@controller01:~# openstack network agent list
++--------------------------------------+--------------------+--------------+-------------------+-------+-------+---------------------------+
+| ID                                   | Agent Type         | Host         | Availability Zone | Alive | State | Binary                    |
++--------------------------------------+--------------------+--------------+-------------------+-------+-------+---------------------------+
+| 12bd7389-3b23-478d-9467-ebb6be4920b0 | Linux bridge agent | controller01 | None              | :-)   | UP    | neutron-linuxbridge-agent |
+| 4c2f803c-a7ed-43e4-9625-2d2409f8571a | DHCP agent         | controller01 | nova              | :-)   | UP    | neutron-dhcp-agent        |
+| 54dd16aa-f0d4-41a7-b2ca-e1aae6959657 | Open vSwitch agent | snat01       | None              | :-)   | UP    | neutron-openvswitch-agent |
+| 69eeed18-4079-45ba-9517-cc7785bc8599 | Linux bridge agent | compute01    | None              | :-)   | UP    | neutron-linuxbridge-agent |
+| a19d0599-4306-4f53-bd44-aa549b6d028d | Metadata agent     | controller01 | None              | :-)   | UP    | neutron-metadata-agent    |
+| ace32522-1261-4814-b635-622329a019a9 | Open vSwitch agent | compute03    | None              | :-)   | UP    | neutron-openvswitch-agent |
+| fcbad2eb-f964-4434-9125-67162e1a1be7 | Open vSwitch agent | compute02    | None              | :-)   | UP    | neutron-openvswitch-agent |
++--------------------------------------+--
+
