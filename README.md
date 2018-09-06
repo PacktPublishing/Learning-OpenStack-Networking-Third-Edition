@@ -54,7 +54,6 @@ We also provide a PDF file that has color images of the screenshots/diagrams use
 
 * Mastering Python Networking - Second Edition [[Packt]](https://www.packtpub.com/networking-and-servers/mastering-python-networking-second-edition?utm_source=github&utm_medium=repository&utm_campaign=9781789135992 ) [[Amazon]](https://www.amazon.com/dp/1789135990)
 
-*  [[Packt]]() [[Amazon]](https://www.amazon.com/dp/)
 
 ## Get to Know the Author
 **James Denton**
@@ -66,11 +65,6 @@ is a Principal Architect at Rackspace with over 15 years of experience in system
 
 [OpenStack Networking Essentials](https://www.packtpub.com/virtualization-and-cloud/openstack-networking-essentials?utm_source=github&utm_medium=repository&utm_campaign=9781785283277 )
 
-[]()
-
-[]()
-
-[]()
 
 ### Suggestions and Feedback
 [Click here](https://docs.google.com/forms/d/e/1FAIpQLSdy7dATC6QmEL81FIUuymZ0Wy9vH1jHkvpY57OiMeKGqib_Ow/viewform) if you have any feedback or suggestions.
